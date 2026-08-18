@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 export type SidebarMode = 'explorer' | 'search';
 
@@ -9,10 +9,19 @@ interface Props {
   sidebarOpen: boolean;
   onSelect: (mode: SidebarMode) => void;
   onExportNotes?: () => void;
+  splitActive?: boolean;
+  onToggleSplit?: () => void;
 }
 
 // VS Code jaisi narrow icon rail — left side me hamesha visible rehti hai
-export default function ActivityBar({ activeMode, sidebarOpen, onSelect, onExportNotes }: Props) {
+export default function ActivityBar({
+  activeMode,
+  sidebarOpen,
+  onSelect,
+  onExportNotes,
+  splitActive,
+  onToggleSplit,
+}: Props) {
   const isExplorerActive = sidebarOpen && activeMode === 'explorer';
   const isSearchActive = sidebarOpen && activeMode === 'search';
 
@@ -40,6 +49,19 @@ export default function ActivityBar({ activeMode, sidebarOpen, onSelect, onExpor
       </TouchableOpacity>
 
       <View style={styles.spacer} />
+
+      {onToggleSplit && (
+        <TouchableOpacity
+          style={[styles.iconBtn, splitActive && styles.activeIconBtn]}
+          onPress={onToggleSplit}
+        >
+          <MaterialIcons
+            name="vertical-split"
+            size={20}
+            color={splitActive ? '#ffffff' : '#858585'}
+          />
+        </TouchableOpacity>
+      )}
 
       {onExportNotes && (
         <TouchableOpacity style={styles.iconBtn} onPress={onExportNotes}>

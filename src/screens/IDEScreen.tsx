@@ -11,7 +11,7 @@ import {
   Dimensions,
   Alert,  
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';   
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
@@ -30,8 +30,7 @@ import { exportAllNotes } from '../utils/notesStorage';
 import ActivityBar, { SidebarMode } from '../components/ActivityBar';
 import Sidebar from '../components/Sidebar';
 import TabBar, { OpenTab } from '../components/TabBar';
-import CodeView from '../components/CodeView';
-import NotesView from '../components/NotesView';
+import EditorPane, { FileViewMode } from '../components/EditorPane';
 
 // Android par smooth expand/collapse animation ke liye
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -39,7 +38,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IDE'>;
-type FileViewMode = 'code' | 'notes';
+type FocusedPane = 'left' | 'right';
 
 const MIN_FONT_SIZE = 10;
 const MAX_FONT_SIZE = 24;
@@ -75,6 +74,12 @@ export default function IDEScreen({ route }: Props) {
   const [activeLine, setActiveLine] = useState<number | null>(null);
   const [fileViewMode, setFileViewMode] = useState<FileViewMode>('code');
 
+  // Phase — Split View: right pane ek doosri file dikhata hai, left ke saath side-by-side
+  const [splitActive, setSplitActive] = useState(false);
+  const [splitPath, setSplitPath] = useState<string | null>(null);
+  const [rightViewMode, setRightViewMode] = useState<FileViewMode>('code');
+  const [focusedPane, setFocusedPane] = useState<FocusedPane>('left');
+
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [wordWrap, setWordWrap] = useState(false);
 
@@ -100,6 +105,10 @@ export default function IDEScreen({ route }: Props) {
         setExpandedPaths(new Set(session.expandedPaths || []));
         if (session.fontSize) setFontSize(session.fontSize);
         setWordWrap(session.wordWrap ?? false);
+        if (session.splitActive && session.splitPath) {
+          setSplitActive(true);
+          setSplitPath(session.splitPath);
+        }
       }
       sessionRestoredRef.current = true;
     })();
@@ -116,17 +125,21 @@ export default function IDEScreen({ route }: Props) {
         expandedPaths: Array.from(expandedPaths),
         fontSize,
         wordWrap,
+        splitActive,
+        splitPath,
       });
     }, SESSION_SAVE_DEBOUNCE_MS);
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [projectPath, openTabs, activePath, expandedPaths, fontSize, wordWrap]);
+  }, [projectPath, openTabs, activePath, expandedPaths, fontSize, wordWrap, splitActive, splitPath]);
 
   const allFiles = useMemo(() => flattenFiles(tree), [tree]);
 
   const openFile = useCallback(
-    (path: string, name: string) => {
+    // forcePane diya ho to usi pane me khulti hai (jaise search result hamesha left me),
+    // warna jo pane abhi "focused" hai usme khulti hai — yahi split view ka core behaviour hai.
+    (path: string, name: string, forcePane?: FocusedPane) => {
       setOpenTabs((prev) => {
         if (prev.some((t) => t.path === path)) return prev;
         const next = [...prev, { path, name }];
@@ -135,14 +148,49 @@ export default function IDEScreen({ route }: Props) {
         }
         return next;
       });
-      setActivePath(path);
-      setFileViewMode('code'); // naya file hamesha Code tab me khule
+
+      const targetPane: FocusedPane =
+        forcePane ?? (splitActive && focusedPane === 'right' ? 'right' : 'left');
+
+      if (targetPane === 'right') {
+        setSplitPath(path);
+        setRightViewMode('code');
+      } else {
+        setActivePath(path);
+        setFileViewMode('code'); // naya file hamesha Code tab me khule
+      }
+
       if (isNarrowScreen) {
         setSidebarOpen(false);
       }
     },
-    [isNarrowScreen]
+    [isNarrowScreen, splitActive, focusedPane]
   );
+
+  const toggleSplit = useCallback(() => {
+    setSplitActive((prev) => {
+      const next = !prev;
+      if (next) {
+        // Split kholte waqt agar koi doosri tab pehle se khuli hai to wahi right pane me dikhao,
+        // warna filhaal wahi active file dono taraf dikhao (user turant koi file tap kar sakta hai)
+        setSplitPath((currentSplitPath) => {
+          if (currentSplitPath) return currentSplitPath;
+          const other = openTabs.find((t) => t.path !== activePath);
+          return other ? other.path : activePath;
+        });
+        setFocusedPane('right');
+      } else {
+        setFocusedPane('left');
+      }
+      return next;
+    });
+  }, [openTabs, activePath]);
+
+  const closeSplit = useCallback(() => {
+    setSplitActive(false);
+    setSplitPath(null);
+    setFocusedPane('left');
+  }, []);
 
   const handleFilePress = useCallback(
     (node: TreeNode) => {
@@ -185,8 +233,12 @@ export default function IDEScreen({ route }: Props) {
         }
         return next;
       });
+      // Agar band ki gayi tab right pane me khuli thi, use bhi clear karo
+      if (splitPath === path) {
+        setSplitPath(null);
+      }
     },
-    [activePath]
+    [activePath, splitPath]
   );
 
   const handleSearchSubmit = useCallback(async () => {
@@ -202,7 +254,9 @@ export default function IDEScreen({ route }: Props) {
 
   const handleSearchResultPress = useCallback(
     (filePath: string, fileName: string, lineNumber?: number) => {
-      openFile(filePath, fileName);
+      // Search result hamesha LEFT pane me khulta hai — predictable rehta hai chahe
+      // right pane focused ho, kyunki line-highlight sirf left pane me dikhta hai
+      openFile(filePath, fileName, 'left');
       setActiveLine(lineNumber ?? null);
     },
     [openFile]
@@ -221,11 +275,20 @@ export default function IDEScreen({ route }: Props) {
     [sidebarMode, sidebarOpen]
   );
 
-  const handleTabSelect = useCallback((path: string) => {
-    setActivePath(path);
-    setActiveLine(null);
-    setFileViewMode('code');
-  }, []);
+  const handleTabSelect = useCallback(
+    (path: string) => {
+      // Top tab bar bhi focused pane ke hisaab se hi route karti hai
+      if (splitActive && focusedPane === 'right') {
+        setSplitPath(path);
+        setRightViewMode('code');
+      } else {
+        setActivePath(path);
+        setActiveLine(null);
+        setFileViewMode('code');
+      }
+    },
+    [splitActive, focusedPane]
+  );
 
     // Phase 9c — poore project ke saare notes (file-level + line-level) ek text me copy karo
   const handleExportNotes = useCallback(async () => {
@@ -241,6 +304,7 @@ export default function IDEScreen({ route }: Props) {
 
 
   const activeTab = openTabs.find((t) => t.path === activePath) || null;
+  const splitTab = openTabs.find((t) => t.path === splitPath) || null;
 
   if (loadingTree) {
     return (
@@ -277,92 +341,65 @@ export default function IDEScreen({ route }: Props) {
   sidebarOpen={sidebarOpen}
   onSelect={handleSelectMode}
   onExportNotes={handleExportNotes}
+  splitActive={splitActive}
+  onToggleSplit={toggleSplit}
 />
 
 
       <View style={styles.mainArea}>
         <TabBar tabs={openTabs} activePath={activePath} onSelect={handleTabSelect} onClose={handleCloseTab} />
 
-        {activeTab ? (
-          <>
-            <View style={styles.zoomBar}>
-              <View style={styles.viewModeSwitch}>
-                <TouchableOpacity
-                  onPress={() => setFileViewMode('code')}
-                  style={[styles.viewModeBtn, fileViewMode === 'code' && styles.viewModeBtnActive]}
-                >
-                  <Ionicons
-                    name="code-slash-outline"
-                    size={13}
-                    color={fileViewMode === 'code' ? '#ffffff' : '#858585'}
-                  />
-                  <Text
-                    style={[styles.viewModeText, fileViewMode === 'code' && styles.viewModeTextActive]}
-                  >
-                    Code
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setFileViewMode('notes')}
-                  style={[styles.viewModeBtn, fileViewMode === 'notes' && styles.viewModeBtnActive]}
-                >
-                  <Ionicons
-                    name="create-outline"
-                    size={13}
-                    color={fileViewMode === 'notes' ? '#ffffff' : '#858585'}
-                  />
-                  <Text
-                    style={[styles.viewModeText, fileViewMode === 'notes' && styles.viewModeTextActive]}
-                  >
-                    My Notes
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {fileViewMode === 'code' && (
-                <View style={styles.zoomControls}>
-                  <TouchableOpacity
-                    onPress={() => setWordWrap((w) => !w)}
-                    style={[styles.wrapBtn, wordWrap && styles.wrapBtnActive]}
-                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  >
-                    <MaterialIcons name="wrap-text" size={16} color={wordWrap ? '#ffffff' : '#cccccc'} />
-                  </TouchableOpacity>
-
-                  <View style={styles.zoomDivider} />
-
-                  <TouchableOpacity
-                    onPress={() => setFontSize((f) => Math.max(MIN_FONT_SIZE, f - 1))}
-                    style={styles.zoomBtn}
-                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  >
-                    <Ionicons name="remove" size={16} color="#cccccc" />
-                  </TouchableOpacity>
-                  <Text style={styles.zoomLabel}>{fontSize}px</Text>
-                  <TouchableOpacity
-                    onPress={() => setFontSize((f) => Math.min(MAX_FONT_SIZE, f + 1))}
-                    style={styles.zoomBtn}
-                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  >
-                    <Ionicons name="add" size={16} color="#cccccc" />
-                  </TouchableOpacity>
-                </View>
-              )}
+        {activeTab || splitTab ? (
+          <View
+            style={[
+              styles.panesRow,
+              isNarrowScreen && styles.panesColumn,
+            ]}
+          >
+            <View style={splitActive ? styles.paneHalf : styles.paneFull}>
+              <EditorPane
+                tab={activeTab}
+                viewMode={fileViewMode}
+                onViewModeChange={setFileViewMode}
+                fontSize={fontSize}
+                onZoomIn={() => setFontSize((f) => Math.min(MAX_FONT_SIZE, f + 1))}
+                onZoomOut={() => setFontSize((f) => Math.max(MIN_FONT_SIZE, f - 1))}
+                wordWrap={wordWrap}
+                onToggleWordWrap={() => setWordWrap((w) => !w)}
+                highlightLine={activeLine}
+                focused={focusedPane === 'left'}
+                onFocus={() => setFocusedPane('left')}
+                showFocusIndicator={splitActive}
+                emptyTitle="Koi file nahi khuli"
+                emptySubtitle="Sidebar se ek file select karo"
+              />
             </View>
 
-            {fileViewMode === 'code' ? (
-              <CodeView
-                key={activeTab.path}
-                filePath={activeTab.path}
-                fileName={activeTab.name}
-                fontSize={fontSize}
-                highlightLine={activeLine}
-                wordWrap={wordWrap}
-              />
-            ) : (
-              <NotesView key={activeTab.path} filePath={activeTab.path} fileName={activeTab.name} />
+            {splitActive && (
+              <>
+                <View style={isNarrowScreen ? styles.paneDividerHorizontal : styles.paneDividerVertical} />
+                <View style={styles.paneHalf}>
+                  <EditorPane
+                    tab={splitTab}
+                    viewMode={rightViewMode}
+                    onViewModeChange={setRightViewMode}
+                    fontSize={fontSize}
+                    onZoomIn={() => setFontSize((f) => Math.min(MAX_FONT_SIZE, f + 1))}
+                    onZoomOut={() => setFontSize((f) => Math.max(MIN_FONT_SIZE, f - 1))}
+                    wordWrap={wordWrap}
+                    onToggleWordWrap={() => setWordWrap((w) => !w)}
+                    highlightLine={null}
+                    focused={focusedPane === 'right'}
+                    onFocus={() => setFocusedPane('right')}
+                    showFocusIndicator={splitActive}
+                    onCloseSplit={closeSplit}
+                    emptyTitle="Doosri file chuno"
+                    emptySubtitle="Sidebar se koi file tap karo, ye is pane me khulegi"
+                  />
+                </View>
+              </>
             )}
-          </>
+          </View>
         ) : (
           <View style={styles.emptyState}>
             <Ionicons name="code-slash-outline" size={48} color="#3c3c3c" />
@@ -429,64 +466,26 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 8,
   },
-  zoomBar: {
+  panesRow: {
+    flex: 1,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#1e1e1e',
   },
-  viewModeSwitch: {
-    flexDirection: 'row',
-    backgroundColor: '#252526',
-    borderRadius: 5,
-    padding: 2,
+  panesColumn: {
+    flexDirection: 'column',
   },
-  viewModeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+  paneFull: {
+    flex: 1,
   },
-  viewModeBtnActive: {
-    backgroundColor: '#007ACC',
+  paneHalf: {
+    flex: 1,
   },
-  viewModeText: {
-    color: '#858585',
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  viewModeTextActive: {
-    color: '#ffffff',
-  },
-  zoomControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  wrapBtn: {
-    padding: 4,
-    borderRadius: 4,
-  },
-  wrapBtnActive: {
-    backgroundColor: '#007ACC',
-  },
-  zoomDivider: {
+  paneDividerVertical: {
     width: 1,
-    height: 16,
-    backgroundColor: '#3c3c3c',
-    marginHorizontal: 10,
+    backgroundColor: '#000000',
   },
-  zoomBtn: {
-    padding: 4,
-  },
-  zoomLabel: {
-    color: '#858585',
-    fontSize: 11,
-    marginHorizontal: 6,
-    fontFamily: 'monospace',
+  paneDividerHorizontal: {
+    height: 1,
+    backgroundColor: '#000000',
   },
   emptyState: {
     flex: 1,

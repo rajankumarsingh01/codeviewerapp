@@ -76,6 +76,9 @@ export interface ProjectSession {
   expandedPaths: string[];
   fontSize: number;
   wordWrap: boolean;
+  // Phase: Split View — optional taaki purani saved sessions (in fields ke bina) bhi crash na karein
+  splitActive?: boolean;
+  splitPath?: string | null;
 }
 
 export async function getProjectSession(projectPath: string): Promise<ProjectSession | null> {
