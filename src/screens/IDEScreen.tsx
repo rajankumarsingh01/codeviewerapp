@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import {
@@ -50,8 +50,6 @@ export default function IDEScreen({ route }: Props) {
     return () => sub.remove();
   }, []);
 
-  // Phone par sidebar ek overlay drawer ki tarah kaam karega (code ke upar float, full readable width).
-  // Tablet/wide screen par purana push layout (side-by-side) chalta rahega.
   const isNarrowScreen = screenWidth < TABLET_BREAKPOINT;
   const sidebarWidth = isNarrowScreen
     ? Math.min(320, screenWidth - ACTIVITY_BAR_WIDTH - 40)
@@ -69,12 +67,12 @@ export default function IDEScreen({ route }: Props) {
   const [activeLine, setActiveLine] = useState<number | null>(null);
 
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
+  const [wordWrap, setWordWrap] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
 
-  // Session restore hone tak save mat karo, warna khaali session purane save ko overwrite kar dega
   const sessionRestoredRef = useRef(false);
 
   useEffect(() => {
@@ -84,25 +82,23 @@ export default function IDEScreen({ route }: Props) {
       setTree(result);
       setLoadingTree(false);
 
-      // Project khulte hi "recently opened" list ke liye timestamp update karo
       touchProjectOpened(projectPath);
 
-      // Pichli baar ka session (tabs, expanded folders, zoom) restore karo
       const session = await getProjectSession(projectPath);
       if (session) {
         setOpenTabs(session.openTabs || []);
         setActivePath(session.activePath ?? null);
         setExpandedPaths(new Set(session.expandedPaths || []));
         if (session.fontSize) setFontSize(session.fontSize);
+        setWordWrap(session.wordWrap ?? false);
       }
       sessionRestoredRef.current = true;
     })();
   }, [projectPath]);
 
-  // Session ko debounce karke save karo — har chhoti change pe disk-write na ho
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!sessionRestoredRef.current) return; // pehli load ke waqt overwrite mat karo
+    if (!sessionRestoredRef.current) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       saveProjectSession(projectPath, {
@@ -110,12 +106,13 @@ export default function IDEScreen({ route }: Props) {
         activePath,
         expandedPaths: Array.from(expandedPaths),
         fontSize,
+        wordWrap,
       });
     }, SESSION_SAVE_DEBOUNCE_MS);
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
-  }, [projectPath, openTabs, activePath, expandedPaths, fontSize]);
+  }, [projectPath, openTabs, activePath, expandedPaths, fontSize, wordWrap]);
 
   const allFiles = useMemo(() => flattenFiles(tree), [tree]);
 
@@ -124,14 +121,12 @@ export default function IDEScreen({ route }: Props) {
       setOpenTabs((prev) => {
         if (prev.some((t) => t.path === path)) return prev;
         const next = [...prev, { path, name }];
-        // Bahut zyada tabs khuli na reh jayein — sabse purani (non-active) tab hata do
         if (next.length > MAX_OPEN_TABS) {
           return next.slice(next.length - MAX_OPEN_TABS);
         }
         return next;
       });
       setActivePath(path);
-      // Phone par file khulte hi sidebar apne aap band ho jaye — poora screen code ko mile
       if (isNarrowScreen) {
         setSidebarOpen(false);
       }
@@ -254,13 +249,22 @@ export default function IDEScreen({ route }: Props) {
     <View style={styles.root}>
       <ActivityBar activeMode={sidebarMode} sidebarOpen={sidebarOpen} onSelect={handleSelectMode} />
 
-      {/* Main code area — hamesha full width leta hai, sidebar iske UPAR float karta hai (phone par) */}
       <View style={styles.mainArea}>
         <TabBar tabs={openTabs} activePath={activePath} onSelect={handleTabSelect} onClose={handleCloseTab} />
 
         {activeTab ? (
           <>
             <View style={styles.zoomBar}>
+              <TouchableOpacity
+                onPress={() => setWordWrap((w) => !w)}
+                style={[styles.wrapBtn, wordWrap && styles.wrapBtnActive]}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <MaterialIcons name="wrap-text" size={16} color={wordWrap ? '#ffffff' : '#cccccc'} />
+              </TouchableOpacity>
+
+              <View style={styles.zoomDivider} />
+
               <TouchableOpacity
                 onPress={() => setFontSize((f) => Math.max(MIN_FONT_SIZE, f - 1))}
                 style={styles.zoomBtn}
@@ -283,6 +287,7 @@ export default function IDEScreen({ route }: Props) {
               fileName={activeTab.name}
               fontSize={fontSize}
               highlightLine={activeLine}
+              wordWrap={wordWrap}
             />
           </>
         ) : (
@@ -294,7 +299,6 @@ export default function IDEScreen({ route }: Props) {
         )}
       </View>
 
-      {/* Phone: sidebar ek overlay drawer hai jo code ke upar float karta hai, backdrop tap karke band ho jata hai */}
       {isNarrowScreen && sidebarOpen && (
         <>
           <TouchableOpacity
@@ -306,7 +310,6 @@ export default function IDEScreen({ route }: Props) {
         </>
       )}
 
-      {/* Tablet: sidebar normal push layout me side-by-side rehta hai */}
       {!isNarrowScreen && sidebarOpen && (
         <View style={{ width: sidebarWidth }}>{sidebarElement}</View>
       )}
@@ -360,6 +363,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     backgroundColor: '#1e1e1e',
+  },
+  wrapBtn: {
+    padding: 4,
+    borderRadius: 4,
+  },
+  wrapBtnActive: {
+    backgroundColor: '#007ACC',
+  },
+  zoomDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: '#3c3c3c',
+    marginHorizontal: 10,
   },
   zoomBtn: {
     padding: 4,

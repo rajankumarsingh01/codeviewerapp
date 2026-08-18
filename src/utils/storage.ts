@@ -75,6 +75,7 @@ export interface ProjectSession {
   activePath: string | null;
   expandedPaths: string[];
   fontSize: number;
+  wordWrap: boolean;
 }
 
 export async function getProjectSession(projectPath: string): Promise<ProjectSession | null> {

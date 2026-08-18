@@ -19,9 +19,10 @@ interface Props {
   fileName: string;
   fontSize: number;
   highlightLine?: number | null;
+  wordWrap: boolean;
 }
 
-export default function CodeView({ filePath, fileName, fontSize, highlightLine }: Props) {
+export default function CodeView({ filePath, fileName, fontSize, highlightLine, wordWrap }: Props) {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -49,12 +50,10 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine }
 
   const language = useMemo(() => getLanguageFromFileName(fileName), [fileName]);
 
-  // Har line ki fixed height taaki FlatList ko getItemLayout mil sake
-  // (isse initial scroll aur jump-to-line instant hote hain, measure karne ki zarurat nahi)
+  // Non-wrap mode me har line ki fixed height taaki FlatList ko getItemLayout mil sake
   const ROW_HEIGHT = fontSize + 10;
 
-  // Sabse lambi line ke hisaab se horizontal content width nikalo,
-  // taaki chhoti files screen-width tak hi rahen aur badi files horizontally scroll ho sakein
+  // Sabse lambi line ke hisaab se horizontal content width nikalo (sirf non-wrap mode me chahiye)
   const screenWidth = Dimensions.get('window').width;
   const contentWidth = useMemo(() => {
     const charWidth = fontSize * 0.62; // monospace ke liye approx ratio
@@ -91,20 +90,27 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine }
     ({ item: lineTokens, index }: { item: Token[]; index: number }) => (
       <View
         style={[
-          styles.lineRow,
-          { height: ROW_HEIGHT },
+          wordWrap ? styles.lineRowWrap : styles.lineRow,
+          !wordWrap && { height: ROW_HEIGHT },
           highlightLine === index + 1 && styles.highlightedLineRow,
         ]}
       >
         <Text
           style={[
             styles.lineNumber,
-            { fontSize: Math.max(9, fontSize - 2), lineHeight: ROW_HEIGHT },
+            { fontSize: Math.max(9, fontSize - 2) },
+            !wordWrap && { lineHeight: ROW_HEIGHT },
           ]}
         >
           {index + 1}
         </Text>
-        <Text style={[styles.lineText, { fontSize, lineHeight: ROW_HEIGHT }]}>
+        <Text
+          style={[
+            wordWrap ? styles.lineTextWrap : styles.lineText,
+            { fontSize },
+            !wordWrap && { lineHeight: ROW_HEIGHT },
+          ]}
+        >
           {lineTokens.length === 0 ? (
             ' '
           ) : (
@@ -124,7 +130,7 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine }
         </Text>
       </View>
     ),
-    [fontSize, highlightLine, ROW_HEIGHT]
+    [fontSize, highlightLine, ROW_HEIGHT, wordWrap]
   );
 
   const getItemLayout = useCallback(
@@ -143,6 +149,27 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine }
       </View>
     );
   }
+
+  const listElement = (
+    <FlatList
+      ref={listRef}
+      data={highlightedLines}
+      keyExtractor={(_, index) => String(index)}
+      renderItem={renderItem}
+      // Wrap mode me lines ki height variable hoti hai, isliye fixed getItemLayout use nahi kar sakte
+      getItemLayout={wordWrap ? undefined : getItemLayout}
+      style={wordWrap ? styles.flatListWrap : { width: contentWidth }}
+      initialNumToRender={50}
+      maxToRenderPerBatch={40}
+      windowSize={12}
+      removeClippedSubviews={true}
+      onScrollToIndexFailed={(info) => {
+        setTimeout(() => {
+          listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+        }, 100);
+      }}
+    />
+  );
 
   return (
     <View style={styles.container}>
@@ -167,25 +194,13 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine }
         </TouchableOpacity>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={true}>
-        <FlatList
-          ref={listRef}
-          data={highlightedLines}
-          keyExtractor={(_, index) => String(index)}
-          renderItem={renderItem}
-          getItemLayout={getItemLayout}
-          style={{ width: contentWidth }}
-          initialNumToRender={50}
-          maxToRenderPerBatch={40}
-          windowSize={12}
-          removeClippedSubviews={true}
-          onScrollToIndexFailed={(info) => {
-            setTimeout(() => {
-              listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
-            }, 100);
-          }}
-        />
-      </ScrollView>
+      {wordWrap ? (
+        listElement
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+          {listElement}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -241,9 +256,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 5,
   },
+  flatListWrap: {
+    flex: 1,
+  },
   lineRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  lineRowWrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 2,
   },
   highlightedLineRow: {
     backgroundColor: '#2a2d3d',
@@ -259,5 +282,12 @@ const styles = StyleSheet.create({
     color: '#D4D4D4',
     fontFamily: 'monospace',
     paddingRight: 24,
+  },
+  lineTextWrap: {
+    color: '#D4D4D4',
+    fontFamily: 'monospace',
+    flex: 1,
+    flexWrap: 'wrap',
+    paddingRight: 14,
   },
 });
