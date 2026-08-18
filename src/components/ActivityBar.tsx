@@ -8,10 +8,11 @@ interface Props {
   activeMode: SidebarMode;
   sidebarOpen: boolean;
   onSelect: (mode: SidebarMode) => void;
+  onExportNotes?: () => void;
 }
 
 // VS Code jaisi narrow icon rail — left side me hamesha visible rehti hai
-export default function ActivityBar({ activeMode, sidebarOpen, onSelect }: Props) {
+export default function ActivityBar({ activeMode, sidebarOpen, onSelect, onExportNotes }: Props) {
   const isExplorerActive = sidebarOpen && activeMode === 'explorer';
   const isSearchActive = sidebarOpen && activeMode === 'search';
 
@@ -37,6 +38,14 @@ export default function ActivityBar({ activeMode, sidebarOpen, onSelect }: Props
           color={isSearchActive ? '#ffffff' : '#858585'}
         />
       </TouchableOpacity>
+
+      <View style={styles.spacer} />
+
+      {onExportNotes && (
+        <TouchableOpacity style={styles.iconBtn} onPress={onExportNotes}>
+          <Ionicons name="share-outline" size={20} color="#858585" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -47,6 +56,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#333333',
     alignItems: 'center',
     paddingTop: 8,
+    paddingBottom: 8,
   },
   iconBtn: {
     width: 48,
@@ -58,5 +68,8 @@ const styles = StyleSheet.create({
   },
   activeIconBtn: {
     borderLeftColor: '#ffffff',
+  },
+  spacer: {
+    flex: 1,
   },
 });

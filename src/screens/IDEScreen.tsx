@@ -9,8 +9,10 @@ import {
   UIManager,
   ActivityIndicator,
   Dimensions,
+  Alert,  
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';   
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import {
@@ -21,6 +23,10 @@ import {
   SearchResults,
 } from '../utils/fileSystem';
 import { getProjectSession, saveProjectSession, touchProjectOpened } from '../utils/storage';
+
+import { exportAllNotes } from '../utils/notesStorage';  
+
+
 import ActivityBar, { SidebarMode } from '../components/ActivityBar';
 import Sidebar from '../components/Sidebar';
 import TabBar, { OpenTab } from '../components/TabBar';
@@ -221,6 +227,19 @@ export default function IDEScreen({ route }: Props) {
     setFileViewMode('code');
   }, []);
 
+    // Phase 9c — poore project ke saare notes (file-level + line-level) ek text me copy karo
+  const handleExportNotes = useCallback(async () => {
+    const text = await exportAllNotes(projectName, projectPath, allFiles);
+    if (!text) {
+      Alert.alert('Koi notes nahi mile', 'Abhi tak is project ki kisi file me koi note nahi likha gaya.');
+      return;
+    }
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copied!', 'Is project ke saare notes clipboard me copy ho gaye. Ab kahin bhi paste kar sakte ho.');
+  }, [projectName, projectPath, allFiles]);
+
+
+
   const activeTab = openTabs.find((t) => t.path === activePath) || null;
 
   if (loadingTree) {
@@ -253,7 +272,13 @@ export default function IDEScreen({ route }: Props) {
 
   return (
     <View style={styles.root}>
-      <ActivityBar activeMode={sidebarMode} sidebarOpen={sidebarOpen} onSelect={handleSelectMode} />
+     <ActivityBar
+  activeMode={sidebarMode}
+  sidebarOpen={sidebarOpen}
+  onSelect={handleSelectMode}
+  onExportNotes={handleExportNotes}
+/>
+
 
       <View style={styles.mainArea}>
         <TabBar tabs={openTabs} activePath={activePath} onSelect={handleTabSelect} onClose={handleCloseTab} />

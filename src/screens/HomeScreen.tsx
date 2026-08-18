@@ -16,7 +16,8 @@ import type { RootStackParamList } from '../../App';
 import { extractZipToLocal } from '../utils/zipExtractor';
 import { getProjects, removeProject, touchProjectOpened, ProjectMeta } from '../utils/storage';
 import { deleteProjectFolder } from '../utils/fileSystem';
-import { deleteNotesUnderPath } from '../utils/notesStorage';
+import { deleteNotesUnderPath, deleteLineNotesUnderPath, deleteEditedContentUnderPath } from '../utils/notesStorage';
+
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -109,7 +110,11 @@ export default function HomeScreen({ navigation }: Props) {
             onPress: async () => {
               await deleteProjectFolder(project.path);
               await removeProject(project.path);
-              await deleteNotesUnderPath(project.path);
+              
+              await deleteLineNotesUnderPath(project.path); 
+
+              await deleteEditedContentUnderPath(project.path); 
+              
               loadProjects();
             },
           },
