@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import JSZip from 'jszip';
+import { addOrUpdateProject } from './storage';
 
 export interface ExtractResult {
   success: boolean;
@@ -65,6 +66,9 @@ export async function extractZipToLocal(
         });
       }
     }
+
+    // 7. Project ko saved list me register/update karo (Home screen ke liye)
+    await addOrUpdateProject(projectName, projectPath);
 
     return {
       success: true,

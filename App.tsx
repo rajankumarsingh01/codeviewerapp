@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import HomeScreen from './src/screens/HomeScreen';
 import IDEScreen from './src/screens/IDEScreen';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -26,18 +27,20 @@ const navTheme = {
 
 export default function App() {
   return (
-    <NavigationContainer theme={navTheme}>
-      <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'My Projects' }} />
-        <Stack.Screen
-          name="IDE"
-          component={IDEScreen}
-          options={({ route }) => ({
-            title: route.params.projectName,
-            headerBackTitle: 'Projects',
-          })}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <ErrorBoundary>
+      <NavigationContainer theme={navTheme}>
+        <Stack.Navigator initialRouteName="Home">
+          <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'My Projects' }} />
+          <Stack.Screen
+            name="IDE"
+            component={IDEScreen}
+            options={({ route }) => ({
+              title: route.params.projectName,
+              headerBackTitle: 'Projects',
+            })}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </ErrorBoundary>
   );
 }

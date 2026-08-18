@@ -1,7 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  FlatList,
+  TouchableOpacity,
+  Dimensions,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import { readFileContent } from '../utils/fileSystem';
-import { highlightToLines, getLanguageFromFileName } from '../utils/syntaxHighlighter';
+import { highlightToLines, getLanguageFromFileName, Token } from '../utils/syntaxHighlighter';
 
 interface Props {
   filePath: string;
@@ -13,6 +24,7 @@ interface Props {
 export default function CodeView({ filePath, fileName, fontSize, highlightLine }: Props) {
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +49,93 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine }
 
   const language = useMemo(() => getLanguageFromFileName(fileName), [fileName]);
 
+  // Har line ki fixed height taaki FlatList ko getItemLayout mil sake
+  // (isse initial scroll aur jump-to-line instant hote hain, measure karne ki zarurat nahi)
+  const ROW_HEIGHT = fontSize + 10;
+
+  // Sabse lambi line ke hisaab se horizontal content width nikalo,
+  // taaki chhoti files screen-width tak hi rahen aur badi files horizontally scroll ho sakein
+  const screenWidth = Dimensions.get('window').width;
+  const contentWidth = useMemo(() => {
+    const charWidth = fontSize * 0.62; // monospace ke liye approx ratio
+    let maxLen = 0;
+    for (const line of highlightedLines) {
+      let len = 0;
+      for (const t of line) len += t.text.length;
+      if (len > maxLen) maxLen = len;
+    }
+    return Math.max(screenWidth, 44 + maxLen * charWidth + 40);
+  }, [highlightedLines, fontSize, screenWidth]);
+
+  const handleCopyFile = useCallback(async () => {
+    if (!content) return;
+    await Clipboard.setStringAsync(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [content]);
+
+  const listRef = useRef<FlatList<Token[]>>(null);
+
+  // Search se koi specific line pe jump kiya gaya ho to us line tak auto-scroll karo
+  useEffect(() => {
+    if (highlightLine == null || !listRef.current) return;
+    const index = highlightLine - 1;
+    if (index < 0 || index >= highlightedLines.length) return;
+    const timeout = setTimeout(() => {
+      listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.3 });
+    }, 50);
+    return () => clearTimeout(timeout);
+  }, [highlightLine, highlightedLines.length]);
+
+  const renderItem = useCallback(
+    ({ item: lineTokens, index }: { item: Token[]; index: number }) => (
+      <View
+        style={[
+          styles.lineRow,
+          { height: ROW_HEIGHT },
+          highlightLine === index + 1 && styles.highlightedLineRow,
+        ]}
+      >
+        <Text
+          style={[
+            styles.lineNumber,
+            { fontSize: Math.max(9, fontSize - 2), lineHeight: ROW_HEIGHT },
+          ]}
+        >
+          {index + 1}
+        </Text>
+        <Text style={[styles.lineText, { fontSize, lineHeight: ROW_HEIGHT }]}>
+          {lineTokens.length === 0 ? (
+            ' '
+          ) : (
+            lineTokens.map((token, tokenIndex) => (
+              <Text
+                key={tokenIndex}
+                style={{
+                  color: token.color,
+                  fontStyle: token.italic ? 'italic' : 'normal',
+                  fontWeight: token.bold ? 'bold' : 'normal',
+                }}
+              >
+                {token.text}
+              </Text>
+            ))
+          )}
+        </Text>
+      </View>
+    ),
+    [fontSize, highlightLine, ROW_HEIGHT]
+  );
+
+  const getItemLayout = useCallback(
+    (_: Token[][] | null | undefined, index: number) => ({
+      length: ROW_HEIGHT,
+      offset: ROW_HEIGHT * index,
+      index,
+    }),
+    [ROW_HEIGHT]
+  );
+
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -48,42 +147,44 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine }
   return (
     <View style={styles.container}>
       <View style={styles.langBar}>
-        <Text style={styles.langText}>{language}</Text>
-        <Text style={styles.lineCountText}>{highlightedLines.length} lines</Text>
+        <View style={styles.langBarLeft}>
+          <Text style={styles.langText}>{language}</Text>
+          <Text style={styles.lineCountText}>{highlightedLines.length} lines</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.copyBtn}
+          onPress={handleCopyFile}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Ionicons
+            name={copied ? 'checkmark' : 'copy-outline'}
+            size={14}
+            color={copied ? '#4EC9B0' : '#cccccc'}
+          />
+          <Text style={[styles.copyBtnText, copied && { color: '#4EC9B0' }]}>
+            {copied ? 'Copied!' : 'Copy File'}
+          </Text>
+        </TouchableOpacity>
       </View>
-      <ScrollView style={styles.scrollVertical} horizontal={false}>
-        <ScrollView horizontal={true}>
-          <View>
-            {highlightedLines.map((lineTokens, index) => (
-              <View
-                key={index}
-                style={[styles.lineRow, highlightLine === index + 1 && styles.highlightedLineRow]}
-              >
-                <Text style={[styles.lineNumber, { fontSize: Math.max(9, fontSize - 2) }]}>
-                  {index + 1}
-                </Text>
-                <Text style={[styles.lineText, { fontSize }]}>
-                  {lineTokens.length === 0 ? (
-                    ' '
-                  ) : (
-                    lineTokens.map((token, tokenIndex) => (
-                      <Text
-                        key={tokenIndex}
-                        style={{
-                          color: token.color,
-                          fontStyle: token.italic ? 'italic' : 'normal',
-                          fontWeight: token.bold ? 'bold' : 'normal',
-                        }}
-                      >
-                        {token.text}
-                      </Text>
-                    ))
-                  )}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+        <FlatList
+          ref={listRef}
+          data={highlightedLines}
+          keyExtractor={(_, index) => String(index)}
+          renderItem={renderItem}
+          getItemLayout={getItemLayout}
+          style={{ width: contentWidth }}
+          initialNumToRender={50}
+          maxToRenderPerBatch={40}
+          windowSize={12}
+          removeClippedSubviews={true}
+          onScrollToIndexFailed={(info) => {
+            setTimeout(() => {
+              listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+            }, 100);
+          }}
+        />
       </ScrollView>
     </View>
   );
@@ -110,6 +211,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#333',
   },
+  langBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   langText: {
     color: '#858585',
     fontSize: 12,
@@ -122,11 +228,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'monospace',
   },
-  scrollVertical: {
-    flex: 1,
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: '#3c3c3c',
+  },
+  copyBtnText: {
+    color: '#cccccc',
+    fontSize: 12,
+    marginLeft: 5,
   },
   lineRow: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   highlightedLineRow: {
     backgroundColor: '#2a2d3d',

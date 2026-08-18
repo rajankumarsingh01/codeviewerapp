@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import {
   TreeNode,
   SearchResults,
 } from '../utils/fileSystem';
+import { getProjectSession, saveProjectSession, touchProjectOpened } from '../utils/storage';
 import ActivityBar, { SidebarMode } from '../components/ActivityBar';
 import Sidebar from '../components/Sidebar';
 import TabBar, { OpenTab } from '../components/TabBar';
@@ -38,6 +39,7 @@ const DEFAULT_FONT_SIZE = 13;
 const ACTIVITY_BAR_WIDTH = 48;
 const TABLET_BREAKPOINT = 700; // is se zyada width ho to tablet-jaisa side-by-side layout
 const MAX_OPEN_TABS = 10; // low-RAM devices ke liye sensible cap
+const SESSION_SAVE_DEBOUNCE_MS = 600;
 
 export default function IDEScreen({ route }: Props) {
   const { projectPath, projectName } = route.params;
@@ -72,14 +74,48 @@ export default function IDEScreen({ route }: Props) {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
 
+  // Session restore hone tak save mat karo, warna khaali session purane save ko overwrite kar dega
+  const sessionRestoredRef = useRef(false);
+
   useEffect(() => {
     (async () => {
       setLoadingTree(true);
       const result = await readDirectoryTree(projectPath);
       setTree(result);
       setLoadingTree(false);
+
+      // Project khulte hi "recently opened" list ke liye timestamp update karo
+      touchProjectOpened(projectPath);
+
+      // Pichli baar ka session (tabs, expanded folders, zoom) restore karo
+      const session = await getProjectSession(projectPath);
+      if (session) {
+        setOpenTabs(session.openTabs || []);
+        setActivePath(session.activePath ?? null);
+        setExpandedPaths(new Set(session.expandedPaths || []));
+        if (session.fontSize) setFontSize(session.fontSize);
+      }
+      sessionRestoredRef.current = true;
     })();
   }, [projectPath]);
+
+  // Session ko debounce karke save karo — har chhoti change pe disk-write na ho
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!sessionRestoredRef.current) return; // pehli load ke waqt overwrite mat karo
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveProjectSession(projectPath, {
+        openTabs,
+        activePath,
+        expandedPaths: Array.from(expandedPaths),
+        fontSize,
+      });
+    }, SESSION_SAVE_DEBOUNCE_MS);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [projectPath, openTabs, activePath, expandedPaths, fontSize]);
 
   const allFiles = useMemo(() => flattenFiles(tree), [tree]);
 

@@ -168,3 +168,12 @@ export async function searchProject(
 
   return result;
 }
+
+// Project ka poora folder delete karo (Project Management > Delete)
+export async function deleteProjectFolder(projectPath: string): Promise<void> {
+  try {
+    await FileSystem.deleteAsync(projectPath, { idempotent: true });
+  } catch (error) {
+    console.error('Error deleting project folder:', projectPath, error);
+  }
+}
