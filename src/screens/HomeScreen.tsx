@@ -16,6 +16,7 @@ import type { RootStackParamList } from '../../App';
 import { extractZipToLocal } from '../utils/zipExtractor';
 import { getProjects, removeProject, touchProjectOpened, ProjectMeta } from '../utils/storage';
 import { deleteProjectFolder } from '../utils/fileSystem';
+import { deleteNotesUnderPath } from '../utils/notesStorage';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -42,7 +43,6 @@ export default function HomeScreen({ navigation }: Props) {
     setProjectsLoading(false);
   }, []);
 
-  // Har baar Home screen focus me aaye (IDE se wapas aane pe bhi) — list refresh karo
   useFocusEffect(
     useCallback(() => {
       loadProjects();
@@ -100,7 +100,7 @@ export default function HomeScreen({ navigation }: Props) {
     (project: ProjectMeta) => {
       Alert.alert(
         'Project delete karein?',
-        `"${project.name}" hamesha ke liye delete ho jayega.`,
+        `"${project.name}" hamesha ke liye delete ho jayega, iske notes bhi.`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -109,6 +109,7 @@ export default function HomeScreen({ navigation }: Props) {
             onPress: async () => {
               await deleteProjectFolder(project.path);
               await removeProject(project.path);
+              await deleteNotesUnderPath(project.path);
               loadProjects();
             },
           },

@@ -25,6 +25,7 @@ import ActivityBar, { SidebarMode } from '../components/ActivityBar';
 import Sidebar from '../components/Sidebar';
 import TabBar, { OpenTab } from '../components/TabBar';
 import CodeView from '../components/CodeView';
+import NotesView from '../components/NotesView';
 
 // Android par smooth expand/collapse animation ke liye
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -32,13 +33,14 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'IDE'>;
+type FileViewMode = 'code' | 'notes';
 
 const MIN_FONT_SIZE = 10;
 const MAX_FONT_SIZE = 24;
 const DEFAULT_FONT_SIZE = 13;
 const ACTIVITY_BAR_WIDTH = 48;
-const TABLET_BREAKPOINT = 700; // is se zyada width ho to tablet-jaisa side-by-side layout
-const MAX_OPEN_TABS = 10; // low-RAM devices ke liye sensible cap
+const TABLET_BREAKPOINT = 700;
+const MAX_OPEN_TABS = 10;
 const SESSION_SAVE_DEBOUNCE_MS = 600;
 
 export default function IDEScreen({ route }: Props) {
@@ -65,6 +67,7 @@ export default function IDEScreen({ route }: Props) {
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [activeLine, setActiveLine] = useState<number | null>(null);
+  const [fileViewMode, setFileViewMode] = useState<FileViewMode>('code');
 
   const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE);
   const [wordWrap, setWordWrap] = useState(false);
@@ -127,6 +130,7 @@ export default function IDEScreen({ route }: Props) {
         return next;
       });
       setActivePath(path);
+      setFileViewMode('code'); // naya file hamesha Code tab me khule
       if (isNarrowScreen) {
         setSidebarOpen(false);
       }
@@ -171,6 +175,7 @@ export default function IDEScreen({ route }: Props) {
             setActivePath(next[newIdx].path);
           }
           setActiveLine(null);
+          setFileViewMode('code');
         }
         return next;
       });
@@ -213,6 +218,7 @@ export default function IDEScreen({ route }: Props) {
   const handleTabSelect = useCallback((path: string) => {
     setActivePath(path);
     setActiveLine(null);
+    setFileViewMode('code');
   }, []);
 
   const activeTab = openTabs.find((t) => t.path === activePath) || null;
@@ -255,40 +261,82 @@ export default function IDEScreen({ route }: Props) {
         {activeTab ? (
           <>
             <View style={styles.zoomBar}>
-              <TouchableOpacity
-                onPress={() => setWordWrap((w) => !w)}
-                style={[styles.wrapBtn, wordWrap && styles.wrapBtnActive]}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                <MaterialIcons name="wrap-text" size={16} color={wordWrap ? '#ffffff' : '#cccccc'} />
-              </TouchableOpacity>
+              <View style={styles.viewModeSwitch}>
+                <TouchableOpacity
+                  onPress={() => setFileViewMode('code')}
+                  style={[styles.viewModeBtn, fileViewMode === 'code' && styles.viewModeBtnActive]}
+                >
+                  <Ionicons
+                    name="code-slash-outline"
+                    size={13}
+                    color={fileViewMode === 'code' ? '#ffffff' : '#858585'}
+                  />
+                  <Text
+                    style={[styles.viewModeText, fileViewMode === 'code' && styles.viewModeTextActive]}
+                  >
+                    Code
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setFileViewMode('notes')}
+                  style={[styles.viewModeBtn, fileViewMode === 'notes' && styles.viewModeBtnActive]}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={13}
+                    color={fileViewMode === 'notes' ? '#ffffff' : '#858585'}
+                  />
+                  <Text
+                    style={[styles.viewModeText, fileViewMode === 'notes' && styles.viewModeTextActive]}
+                  >
+                    My Notes
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-              <View style={styles.zoomDivider} />
+              {fileViewMode === 'code' && (
+                <View style={styles.zoomControls}>
+                  <TouchableOpacity
+                    onPress={() => setWordWrap((w) => !w)}
+                    style={[styles.wrapBtn, wordWrap && styles.wrapBtnActive]}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <MaterialIcons name="wrap-text" size={16} color={wordWrap ? '#ffffff' : '#cccccc'} />
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => setFontSize((f) => Math.max(MIN_FONT_SIZE, f - 1))}
-                style={styles.zoomBtn}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                <Ionicons name="remove" size={16} color="#cccccc" />
-              </TouchableOpacity>
-              <Text style={styles.zoomLabel}>{fontSize}px</Text>
-              <TouchableOpacity
-                onPress={() => setFontSize((f) => Math.min(MAX_FONT_SIZE, f + 1))}
-                style={styles.zoomBtn}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              >
-                <Ionicons name="add" size={16} color="#cccccc" />
-              </TouchableOpacity>
+                  <View style={styles.zoomDivider} />
+
+                  <TouchableOpacity
+                    onPress={() => setFontSize((f) => Math.max(MIN_FONT_SIZE, f - 1))}
+                    style={styles.zoomBtn}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Ionicons name="remove" size={16} color="#cccccc" />
+                  </TouchableOpacity>
+                  <Text style={styles.zoomLabel}>{fontSize}px</Text>
+                  <TouchableOpacity
+                    onPress={() => setFontSize((f) => Math.min(MAX_FONT_SIZE, f + 1))}
+                    style={styles.zoomBtn}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Ionicons name="add" size={16} color="#cccccc" />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-            <CodeView
-              key={activeTab.path}
-              filePath={activeTab.path}
-              fileName={activeTab.name}
-              fontSize={fontSize}
-              highlightLine={activeLine}
-              wordWrap={wordWrap}
-            />
+
+            {fileViewMode === 'code' ? (
+              <CodeView
+                key={activeTab.path}
+                filePath={activeTab.path}
+                fileName={activeTab.name}
+                fontSize={fontSize}
+                highlightLine={activeLine}
+                wordWrap={wordWrap}
+              />
+            ) : (
+              <NotesView key={activeTab.path} filePath={activeTab.path} fileName={activeTab.name} />
+            )}
           </>
         ) : (
           <View style={styles.emptyState}>
@@ -359,10 +407,39 @@ const styles = StyleSheet.create({
   zoomBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     paddingHorizontal: 10,
     paddingVertical: 4,
     backgroundColor: '#1e1e1e',
+  },
+  viewModeSwitch: {
+    flexDirection: 'row',
+    backgroundColor: '#252526',
+    borderRadius: 5,
+    padding: 2,
+  },
+  viewModeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  viewModeBtnActive: {
+    backgroundColor: '#007ACC',
+  },
+  viewModeText: {
+    color: '#858585',
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  viewModeTextActive: {
+    color: '#ffffff',
+  },
+  zoomControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   wrapBtn: {
     padding: 4,
