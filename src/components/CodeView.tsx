@@ -25,6 +25,7 @@ import {
   discardEditedContent,
 } from '../utils/notesStorage';
 import LineCommentModal from './LineCommentModal';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 interface Props {
   filePath: string;
@@ -37,15 +38,16 @@ interface Props {
 const COMMENT_GUTTER_WIDTH = 22;
 
 export default function CodeView({ filePath, fileName, fontSize, highlightLine, wordWrap }: Props) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [originalContent, setOriginalContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
-  // Phase 9b — is file ke saare line-level comments { lineNumber: text }
   const [lineNotes, setLineNotes] = useState<LineNotesMap>({});
   const [activeCommentLine, setActiveCommentLine] = useState<number | null>(null);
 
-  // Phase 9c — actual file editing (local overlay). null = koi saved edit nahi, original dikhega.
   const [editedOverride, setEditedOverride] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draftText, setDraftText] = useState('');
@@ -66,7 +68,6 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
     };
   }, [filePath]);
 
-  // File badalte hi uske line-comments alag se load karo (content load se independent)
   useEffect(() => {
     let cancelled = false;
     setLineNotes({});
@@ -78,7 +79,6 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
     };
   }, [filePath]);
 
-  // File badalte hi uska saved edited overlay (agar hai) load karo
   useEffect(() => {
     let cancelled = false;
     setEditing(false);
@@ -91,7 +91,6 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
     };
   }, [filePath]);
 
-  // Jo dikhana hai: agar edited overlay saved hai to wahi, warna original file content
   const displayContent = editedOverride ?? originalContent;
 
   const handleLinePress = useCallback((lineNumber: number) => {
@@ -151,21 +150,18 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
     );
   }, [filePath]);
 
-  // Content change hone par hi dobara tokenize karo, har render pe nahi
   const highlightedLines = useMemo(() => {
     if (!displayContent) return [];
-    return highlightToLines(displayContent, fileName);
-  }, [displayContent, fileName]);
+    return highlightToLines(displayContent, fileName, isDark);
+  }, [displayContent, fileName, isDark]);
 
   const language = useMemo(() => getLanguageFromFileName(fileName), [fileName]);
 
-  // Non-wrap mode me har line ki fixed height taaki FlatList ko getItemLayout mil sake
   const ROW_HEIGHT = fontSize + 10;
 
-  // Sabse lambi line ke hisaab se horizontal content width nikalo (sirf non-wrap mode me chahiye)
   const screenWidth = Dimensions.get('window').width;
   const contentWidth = useMemo(() => {
-    const charWidth = fontSize * 0.62; // monospace ke liye approx ratio
+    const charWidth = fontSize * 0.62;
     let maxLen = 0;
     for (const line of highlightedLines) {
       let len = 0;
@@ -184,7 +180,6 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
 
   const listRef = useRef<FlatList<Token[]>>(null);
 
-  // Search se koi specific line pe jump kiya gaya ho to us line tak auto-scroll karo
   useEffect(() => {
     if (highlightLine == null || !listRef.current) return;
     const index = highlightLine - 1;
@@ -212,7 +207,7 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
             style={[styles.commentGutter, !wordWrap && { height: ROW_HEIGHT }]}
             hitSlop={{ top: 2, bottom: 2, left: 4, right: 4 }}
           >
-            {hasComment && <Ionicons name="chatbubble" size={10} color="#DCDCAA" />}
+            {hasComment && <Ionicons name="chatbubble" size={10} color={colors.warning} />}
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleLinePress(lineNumber)}
@@ -256,7 +251,7 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
         </View>
       );
     },
-    [fontSize, highlightLine, ROW_HEIGHT, wordWrap, lineNotes, handleLinePress]
+    [fontSize, highlightLine, ROW_HEIGHT, wordWrap, lineNotes, handleLinePress, styles, colors]
   );
 
   const getItemLayout = useCallback(
@@ -271,7 +266,7 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#007ACC" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -282,7 +277,6 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
       data={highlightedLines}
       keyExtractor={(_, index) => String(index)}
       renderItem={renderItem}
-      // Wrap mode me lines ki height variable hoti hai, isliye fixed getItemLayout use nahi kar sakte
       getItemLayout={wordWrap ? undefined : getItemLayout}
       style={wordWrap ? styles.flatListWrap : { width: contentWidth }}
       initialNumToRender={50}
@@ -319,7 +313,7 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
                   onPress={handleResetToOriginal}
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                  <Ionicons name="refresh-outline" size={14} color="#F14C4C" />
+                  <Ionicons name="refresh-outline" size={14} color={colors.dangerAlt} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity
@@ -334,7 +328,7 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
                 onPress={handleSaveEdit}
                 disabled={savingEdit}
               >
-                <Ionicons name="checkmark" size={14} color="#ffffff" />
+                <Ionicons name="checkmark" size={14} color={colors.accentText} />
                 <Text style={styles.saveEditBtnText}>{savingEdit ? 'Saving...' : 'Save'}</Text>
               </TouchableOpacity>
             </>
@@ -345,7 +339,7 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
                 onPress={handleEnterEdit}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               >
-                <Ionicons name="pencil-outline" size={13} color="#cccccc" />
+                <Ionicons name="pencil-outline" size={13} color={colors.textSecondary} />
                 <Text style={styles.copyBtnText}>Edit</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -356,9 +350,9 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
                 <Ionicons
                   name={copied ? 'checkmark' : 'copy-outline'}
                   size={14}
-                  color={copied ? '#4EC9B0' : '#cccccc'}
+                  color={copied ? colors.success : colors.textSecondary}
                 />
-                <Text style={[styles.copyBtnText, copied && { color: '#4EC9B0' }]}>
+                <Text style={[styles.copyBtnText, copied && { color: colors.success }]}>
                   {copied ? 'Copied!' : 'Copy File'}
                 </Text>
               </TouchableOpacity>
@@ -399,144 +393,41 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1e1e1e',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1e1e1e',
-  },
-  langBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    backgroundColor: '#252526',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  langBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  langBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  editedBadge: {
-    backgroundColor: '#3a3d1e',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  editedBadgeText: {
-    color: '#DCDCAA',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  langText: {
-    color: '#858585',
-    fontSize: 12,
-    fontFamily: 'monospace',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  lineCountText: {
-    color: '#858585',
-    fontSize: 12,
-    fontFamily: 'monospace',
-  },
-  copyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: '#3c3c3c',
-  },
-  copyBtnText: {
-    color: '#cccccc',
-    fontSize: 12,
-    marginLeft: 5,
-  },
-  editActionBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  cancelText: {
-    color: '#858585',
-    fontSize: 12,
-  },
-  saveEditBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 4,
-    backgroundColor: '#007ACC',
-  },
-  saveEditBtnText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  editInput: {
-    flex: 1,
-    color: '#D4D4D4',
-    fontFamily: 'monospace',
-    fontSize: 14,
-    padding: 14,
-    lineHeight: 20,
-    backgroundColor: '#1e1e1e',
-  },
-  flatListWrap: {
-    flex: 1,
-  },
-  lineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  lineRowWrap: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 2,
-  },
-  highlightedLineRow: {
-    backgroundColor: '#2a2d3d',
-  },
-  commentGutter: {
-    width: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  lineNumber: {
-    width: 44,
-    textAlign: 'right',
-    paddingRight: 10,
-    color: '#5A5A5A',
-    fontFamily: 'monospace',
-  },
-  lineNumberWithComment: {
-    color: '#DCDCAA',
-  },
-  lineText: {
-    color: '#D4D4D4',
-    fontFamily: 'monospace',
-    paddingRight: 24,
-  },
-  lineTextWrap: {
-    color: '#D4D4D4',
-    fontFamily: 'monospace',
-    flex: 1,
-    flexWrap: 'wrap',
-    paddingRight: 14,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+    langBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      backgroundColor: colors.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    langBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    langBarRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    editedBadge: { backgroundColor: colors.surfaceAlt, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+    editedBadgeText: { color: colors.warning, fontSize: 10, fontWeight: '600' },
+    langText: { color: colors.textMuted, fontSize: 12, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 0.5 },
+    lineCountText: { color: colors.textMuted, fontSize: 12, fontFamily: 'monospace' },
+    copyBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, backgroundColor: colors.inputBg },
+    copyBtnText: { color: colors.textSecondary, fontSize: 12, marginLeft: 5 },
+    editActionBtn: { paddingHorizontal: 8, paddingVertical: 6 },
+    cancelText: { color: colors.textMuted, fontSize: 12 },
+    saveEditBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: colors.accent },
+    saveEditBtnText: { color: colors.accentText, fontSize: 12, fontWeight: '600', marginLeft: 4 },
+    editInput: { flex: 1, color: colors.codeText, fontFamily: 'monospace', fontSize: 14, padding: 14, lineHeight: 20, backgroundColor: colors.background },
+    flatListWrap: { flex: 1 },
+    lineRow: { flexDirection: 'row', alignItems: 'center' },
+    lineRowWrap: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 2 },
+    highlightedLineRow: { backgroundColor: colors.highlightedLine },
+    commentGutter: { width: 22, alignItems: 'center', justifyContent: 'center' },
+    lineNumber: { width: 44, textAlign: 'right', paddingRight: 10, color: colors.lineNumber, fontFamily: 'monospace' },
+    lineNumberWithComment: { color: colors.warning },
+    lineText: { color: colors.codeText, fontFamily: 'monospace', paddingRight: 24 },
+    lineTextWrap: { color: colors.codeText, fontFamily: 'monospace', flex: 1, flexWrap: 'wrap', paddingRight: 14 },
+  });
+}

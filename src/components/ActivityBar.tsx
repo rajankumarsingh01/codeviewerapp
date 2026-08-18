@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 export type SidebarMode = 'explorer' | 'search';
 
@@ -22,6 +23,9 @@ export default function ActivityBar({
   splitActive,
   onToggleSplit,
 }: Props) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const isExplorerActive = sidebarOpen && activeMode === 'explorer';
   const isSearchActive = sidebarOpen && activeMode === 'search';
 
@@ -31,21 +35,13 @@ export default function ActivityBar({
         style={[styles.iconBtn, isExplorerActive && styles.activeIconBtn]}
         onPress={() => onSelect('explorer')}
       >
-        <Ionicons
-          name="documents-outline"
-          size={22}
-          color={isExplorerActive ? '#ffffff' : '#858585'}
-        />
+        <Ionicons name="documents-outline" size={22} color={isExplorerActive ? colors.textPrimary : colors.textMuted} />
       </TouchableOpacity>
       <TouchableOpacity
         style={[styles.iconBtn, isSearchActive && styles.activeIconBtn]}
         onPress={() => onSelect('search')}
       >
-        <Ionicons
-          name="search"
-          size={20}
-          color={isSearchActive ? '#ffffff' : '#858585'}
-        />
+        <Ionicons name="search" size={20} color={isSearchActive ? colors.textPrimary : colors.textMuted} />
       </TouchableOpacity>
 
       <View style={styles.spacer} />
@@ -55,43 +51,29 @@ export default function ActivityBar({
           style={[styles.iconBtn, splitActive && styles.activeIconBtn]}
           onPress={onToggleSplit}
         >
-          <MaterialIcons
-            name="vertical-split"
-            size={20}
-            color={splitActive ? '#ffffff' : '#858585'}
-          />
+          <MaterialIcons name="vertical-split" size={20} color={splitActive ? colors.textPrimary : colors.textMuted} />
         </TouchableOpacity>
       )}
 
       {onExportNotes && (
         <TouchableOpacity style={styles.iconBtn} onPress={onExportNotes}>
-          <Ionicons name="share-outline" size={20} color="#858585" />
+          <Ionicons name="share-outline" size={20} color={colors.textMuted} />
         </TouchableOpacity>
       )}
+
+      {/* Naya: Theme toggle button — bottom me */}
+      <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
+        <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={colors.textMuted} />
+      </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  bar: {
-    width: 48,
-    backgroundColor: '#333333',
-    alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  iconBtn: {
-    width: 48,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderLeftWidth: 2,
-    borderLeftColor: 'transparent',
-  },
-  activeIconBtn: {
-    borderLeftColor: '#ffffff',
-  },
-  spacer: {
-    flex: 1,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    bar: { width: 48, backgroundColor: colors.activityBar, alignItems: 'center', paddingTop: 8, paddingBottom: 8 },
+    iconBtn: { width: 48, height: 44, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 2, borderLeftColor: 'transparent' },
+    activeIconBtn: { borderLeftColor: colors.textPrimary },
+    spacer: { flex: 1 },
+  });
+}

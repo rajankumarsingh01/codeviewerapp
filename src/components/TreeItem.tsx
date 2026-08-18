@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { TreeNode } from '../utils/fileSystem';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 interface Props {
   node: TreeNode;
@@ -12,7 +13,7 @@ interface Props {
   onToggleExpand: (path: string) => void;
 }
 
-// VS Code jaisi file-extension based icon colors (approximate)
+// VS Code jaisi file-extension based icon colors — dono themes me same rehte hain
 const EXT_COLORS: Record<string, string> = {
   js: '#f0db4f',
   jsx: '#61dafb',
@@ -42,6 +43,9 @@ export default function TreeItem({
   onFilePress,
   onToggleExpand,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const expanded = expandedPaths.has(node.path);
   const isActive = !node.isDirectory && node.path === activePath;
 
@@ -63,7 +67,7 @@ export default function TreeItem({
           <Ionicons
             name={expanded ? 'chevron-down' : 'chevron-forward'}
             size={14}
-            color="#858585"
+            color={colors.textMuted}
             style={styles.chevron}
           />
         ) : (
@@ -72,7 +76,7 @@ export default function TreeItem({
         <Ionicons
           name={node.isDirectory ? (expanded ? 'folder-open' : 'folder') : 'document-text-outline'}
           size={16}
-          color={node.isDirectory ? '#c09553' : getFileIconColor(node.name)}
+          color={node.isDirectory ? colors.folderIcon : getFileIconColor(node.name)}
           style={styles.icon}
         />
         <Text style={[styles.name, isActive && styles.activeName]} numberOfLines={1}>
@@ -99,31 +103,13 @@ export default function TreeItem({
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 5,
-    paddingRight: 8,
-  },
-  activeRow: {
-    backgroundColor: '#37373d',
-  },
-  chevron: {
-    width: 14,
-    marginRight: 2,
-  },
-  icon: {
-    marginRight: 6,
-    width: 16,
-  },
-  name: {
-    fontSize: 13,
-    color: '#cccccc',
-    flex: 1,
-  },
-  activeName: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 5, paddingRight: 8 },
+    activeRow: { backgroundColor: colors.activeRow },
+    chevron: { width: 14, marginRight: 2 },
+    icon: { marginRight: 6, width: 16 },
+    name: { fontSize: 13, color: colors.textSecondary, flex: 1 },
+    activeName: { color: colors.textPrimary, fontWeight: '600' },
+  });
+}

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 export interface OpenTab {
   path: string;
@@ -15,6 +16,9 @@ interface Props {
 }
 
 export default function TabBar({ tabs, activePath, onSelect, onClose }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (tabs.length === 0) return null;
 
   return (
@@ -40,7 +44,7 @@ export default function TabBar({ tabs, activePath, onSelect, onClose }: Props) {
               hitSlop={{ top: 8, bottom: 8, left: 6, right: 8 }}
               style={styles.closeBtn}
             >
-              <Ionicons name="close" size={14} color={active ? '#ffffff' : '#858585'} />
+              <Ionicons name="close" size={14} color={active ? colors.textPrimary : colors.textMuted} />
             </TouchableOpacity>
           </TouchableOpacity>
         );
@@ -49,39 +53,23 @@ export default function TabBar({ tabs, activePath, onSelect, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  bar: {
-    backgroundColor: '#252526',
-    maxHeight: 38,
-    flexGrow: 0,
-  },
-  content: {
-    alignItems: 'center',
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 38,
-    paddingHorizontal: 10,
-    backgroundColor: '#2d2d2d',
-    borderRightWidth: 1,
-    borderRightColor: '#1e1e1e',
-    maxWidth: 170,
-  },
-  activeTab: {
-    backgroundColor: '#1e1e1e',
-    borderTopWidth: 2,
-    borderTopColor: '#007ACC',
-  },
-  tabText: {
-    color: '#969696',
-    fontSize: 12,
-    maxWidth: 110,
-  },
-  activeTabText: {
-    color: '#ffffff',
-  },
-  closeBtn: {
-    marginLeft: 8,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    bar: { backgroundColor: colors.surface, maxHeight: 38, flexGrow: 0 },
+    content: { alignItems: 'center' },
+    tab: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 38,
+      paddingHorizontal: 10,
+      backgroundColor: colors.surfaceAlt,
+      borderRightWidth: 1,
+      borderRightColor: colors.background,
+      maxWidth: 170,
+    },
+    activeTab: { backgroundColor: colors.background, borderTopWidth: 2, borderTopColor: colors.accent },
+    tabText: { color: colors.textMuted, fontSize: 12, maxWidth: 110 },
+    activeTabText: { color: colors.textPrimary },
+    closeBtn: { marginLeft: 8 },
+  });
+}

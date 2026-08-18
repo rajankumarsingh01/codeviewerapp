@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import CodeView from './CodeView';
 import NotesView from './NotesView';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 export type FileViewMode = 'code' | 'notes';
 
@@ -29,8 +30,6 @@ interface Props {
   emptySubtitle: string;
 }
 
-// Ek pane = Code/Notes tabs + zoom controls + content. Split view me isi component
-// ko do baar render karte hain (left aur right), single-pane view me ek hi baar.
 export default function EditorPane({
   tab,
   viewMode,
@@ -48,6 +47,9 @@ export default function EditorPane({
   emptyTitle,
   emptySubtitle,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.container} onTouchStart={onFocus}>
       {showFocusIndicator && (
@@ -68,7 +70,7 @@ export default function EditorPane({
                 <Ionicons
                   name="code-slash-outline"
                   size={13}
-                  color={viewMode === 'code' ? '#ffffff' : '#858585'}
+                  color={viewMode === 'code' ? colors.accentText : colors.textMuted}
                 />
                 <Text style={[styles.viewModeText, viewMode === 'code' && styles.viewModeTextActive]}>
                   Code
@@ -84,7 +86,7 @@ export default function EditorPane({
                 <Ionicons
                   name="create-outline"
                   size={13}
-                  color={viewMode === 'notes' ? '#ffffff' : '#858585'}
+                  color={viewMode === 'notes' ? colors.accentText : colors.textMuted}
                 />
                 <Text style={[styles.viewModeText, viewMode === 'notes' && styles.viewModeTextActive]}>
                   My Notes
@@ -103,7 +105,7 @@ export default function EditorPane({
                     style={[styles.wrapBtn, wordWrap && styles.wrapBtnActive]}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
-                    <MaterialIcons name="wrap-text" size={16} color={wordWrap ? '#ffffff' : '#cccccc'} />
+                    <MaterialIcons name="wrap-text" size={16} color={wordWrap ? colors.accentText : colors.textSecondary} />
                   </TouchableOpacity>
 
                   <View style={styles.zoomDivider} />
@@ -116,7 +118,7 @@ export default function EditorPane({
                     style={styles.zoomBtn}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
-                    <Ionicons name="remove" size={16} color="#cccccc" />
+                    <Ionicons name="remove" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                   <Text style={styles.zoomLabel}>{fontSize}px</Text>
                   <TouchableOpacity
@@ -127,7 +129,7 @@ export default function EditorPane({
                     style={styles.zoomBtn}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
-                    <Ionicons name="add" size={16} color="#cccccc" />
+                    <Ionicons name="add" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </>
               )}
@@ -140,7 +142,7 @@ export default function EditorPane({
                     style={styles.zoomBtn}
                     hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
-                    <Ionicons name="close" size={16} color="#cccccc" />
+                    <Ionicons name="close" size={16} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </>
               )}
@@ -164,10 +166,10 @@ export default function EditorPane({
         <View style={styles.emptyState}>
           {onCloseSplit && (
             <TouchableOpacity style={styles.closeSplitBtn} onPress={onCloseSplit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={16} color="#858585" />
+              <Ionicons name="close" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
-          <Ionicons name="code-slash-outline" size={40} color="#3c3c3c" />
+          <Ionicons name="code-slash-outline" size={40} color={colors.surfaceAlt} />
           <Text style={styles.emptyStateText}>{emptyTitle}</Text>
           <Text style={styles.emptyStateSubText}>{emptySubtitle}</Text>
         </View>
@@ -176,99 +178,33 @@ export default function EditorPane({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1e1e1e',
-  },
-  focusStrip: {
-    height: 2,
-    backgroundColor: 'transparent',
-  },
-  focusStripActive: {
-    backgroundColor: '#007ACC',
-  },
-  zoomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: '#1e1e1e',
-  },
-  viewModeSwitch: {
-    flexDirection: 'row',
-    backgroundColor: '#252526',
-    borderRadius: 5,
-    padding: 2,
-  },
-  viewModeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-  },
-  viewModeBtnActive: {
-    backgroundColor: '#007ACC',
-  },
-  viewModeText: {
-    color: '#858585',
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  viewModeTextActive: {
-    color: '#ffffff',
-  },
-  zoomControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  wrapBtn: {
-    padding: 4,
-    borderRadius: 4,
-  },
-  wrapBtnActive: {
-    backgroundColor: '#007ACC',
-  },
-  zoomDivider: {
-    width: 1,
-    height: 16,
-    backgroundColor: '#3c3c3c',
-    marginHorizontal: 10,
-  },
-  zoomBtn: {
-    padding: 4,
-  },
-  zoomLabel: {
-    color: '#858585',
-    fontSize: 11,
-    marginHorizontal: 6,
-    fontFamily: 'monospace',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeSplitBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    padding: 6,
-  },
-  emptyStateText: {
-    color: '#5a5a5a',
-    fontSize: 14,
-    marginTop: 10,
-    fontWeight: '600',
-  },
-  emptyStateSubText: {
-    color: '#4a4a4a',
-    fontSize: 11,
-    marginTop: 4,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    focusStrip: { height: 2, backgroundColor: 'transparent' },
+    focusStripActive: { backgroundColor: colors.accent },
+    zoomBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      backgroundColor: colors.background,
+    },
+    viewModeSwitch: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 5, padding: 2 },
+    viewModeBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 },
+    viewModeBtnActive: { backgroundColor: colors.accent },
+    viewModeText: { color: colors.textMuted, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+    viewModeTextActive: { color: colors.accentText },
+    zoomControls: { flexDirection: 'row', alignItems: 'center' },
+    wrapBtn: { padding: 4, borderRadius: 4 },
+    wrapBtnActive: { backgroundColor: colors.accent },
+    zoomDivider: { width: 1, height: 16, backgroundColor: colors.border, marginHorizontal: 10 },
+    zoomBtn: { padding: 4 },
+    zoomLabel: { color: colors.textMuted, fontSize: 11, marginHorizontal: 6, fontFamily: 'monospace' },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    closeSplitBtn: { position: 'absolute', top: 8, right: 8, padding: 6 },
+    emptyStateText: { color: colors.textDim, fontSize: 14, marginTop: 10, fontWeight: '600' },
+    emptyStateSubText: { color: colors.textFaint, fontSize: 11, marginTop: 4, textAlign: 'center', paddingHorizontal: 20 },
+  });
+}

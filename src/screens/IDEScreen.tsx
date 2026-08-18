@@ -9,10 +9,10 @@ import {
   UIManager,
   ActivityIndicator,
   Dimensions,
-  Alert,  
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';   
+import * as Clipboard from 'expo-clipboard';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
 import {
@@ -24,15 +24,14 @@ import {
 } from '../utils/fileSystem';
 import { getProjectSession, saveProjectSession, touchProjectOpened } from '../utils/storage';
 
-import { exportAllNotes } from '../utils/notesStorage';  
-
+import { exportAllNotes } from '../utils/notesStorage';
 
 import ActivityBar, { SidebarMode } from '../components/ActivityBar';
 import Sidebar from '../components/Sidebar';
 import TabBar, { OpenTab } from '../components/TabBar';
 import EditorPane, { FileViewMode } from '../components/EditorPane';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 
-// Android par smooth expand/collapse animation ke liye
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -50,6 +49,8 @@ const SESSION_SAVE_DEBOUNCE_MS = 600;
 
 export default function IDEScreen({ route }: Props) {
   const { projectPath, projectName } = route.params;
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
   useEffect(() => {
@@ -74,7 +75,6 @@ export default function IDEScreen({ route }: Props) {
   const [activeLine, setActiveLine] = useState<number | null>(null);
   const [fileViewMode, setFileViewMode] = useState<FileViewMode>('code');
 
-  // Phase — Split View: right pane ek doosri file dikhata hai, left ke saath side-by-side
   const [splitActive, setSplitActive] = useState(false);
   const [splitPath, setSplitPath] = useState<string | null>(null);
   const [rightViewMode, setRightViewMode] = useState<FileViewMode>('code');
@@ -137,8 +137,6 @@ export default function IDEScreen({ route }: Props) {
   const allFiles = useMemo(() => flattenFiles(tree), [tree]);
 
   const openFile = useCallback(
-    // forcePane diya ho to usi pane me khulti hai (jaise search result hamesha left me),
-    // warna jo pane abhi "focused" hai usme khulti hai — yahi split view ka core behaviour hai.
     (path: string, name: string, forcePane?: FocusedPane) => {
       setOpenTabs((prev) => {
         if (prev.some((t) => t.path === path)) return prev;
@@ -157,7 +155,7 @@ export default function IDEScreen({ route }: Props) {
         setRightViewMode('code');
       } else {
         setActivePath(path);
-        setFileViewMode('code'); // naya file hamesha Code tab me khule
+        setFileViewMode('code');
       }
 
       if (isNarrowScreen) {
@@ -171,8 +169,6 @@ export default function IDEScreen({ route }: Props) {
     setSplitActive((prev) => {
       const next = !prev;
       if (next) {
-        // Split kholte waqt agar koi doosri tab pehle se khuli hai to wahi right pane me dikhao,
-        // warna filhaal wahi active file dono taraf dikhao (user turant koi file tap kar sakta hai)
         setSplitPath((currentSplitPath) => {
           if (currentSplitPath) return currentSplitPath;
           const other = openTabs.find((t) => t.path !== activePath);
@@ -233,7 +229,6 @@ export default function IDEScreen({ route }: Props) {
         }
         return next;
       });
-      // Agar band ki gayi tab right pane me khuli thi, use bhi clear karo
       if (splitPath === path) {
         setSplitPath(null);
       }
@@ -254,8 +249,6 @@ export default function IDEScreen({ route }: Props) {
 
   const handleSearchResultPress = useCallback(
     (filePath: string, fileName: string, lineNumber?: number) => {
-      // Search result hamesha LEFT pane me khulta hai — predictable rehta hai chahe
-      // right pane focused ho, kyunki line-highlight sirf left pane me dikhta hai
       openFile(filePath, fileName, 'left');
       setActiveLine(lineNumber ?? null);
     },
@@ -277,7 +270,6 @@ export default function IDEScreen({ route }: Props) {
 
   const handleTabSelect = useCallback(
     (path: string) => {
-      // Top tab bar bhi focused pane ke hisaab se hi route karti hai
       if (splitActive && focusedPane === 'right') {
         setSplitPath(path);
         setRightViewMode('code');
@@ -290,7 +282,6 @@ export default function IDEScreen({ route }: Props) {
     [splitActive, focusedPane]
   );
 
-    // Phase 9c — poore project ke saare notes (file-level + line-level) ek text me copy karo
   const handleExportNotes = useCallback(async () => {
     const text = await exportAllNotes(projectName, projectPath, allFiles);
     if (!text) {
@@ -301,15 +292,13 @@ export default function IDEScreen({ route }: Props) {
     Alert.alert('Copied!', 'Is project ke saare notes clipboard me copy ho gaye. Ab kahin bhi paste kar sakte ho.');
   }, [projectName, projectPath, allFiles]);
 
-
-
   const activeTab = openTabs.find((t) => t.path === activePath) || null;
   const splitTab = openTabs.find((t) => t.path === splitPath) || null;
 
   if (loadingTree) {
     return (
       <View style={styles.loadingScreen}>
-        <ActivityIndicator size="large" color="#007ACC" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <Text style={styles.loadingText}>Project load ho raha hai...</Text>
       </View>
     );
@@ -336,26 +325,20 @@ export default function IDEScreen({ route }: Props) {
 
   return (
     <View style={styles.root}>
-     <ActivityBar
-  activeMode={sidebarMode}
-  sidebarOpen={sidebarOpen}
-  onSelect={handleSelectMode}
-  onExportNotes={handleExportNotes}
-  splitActive={splitActive}
-  onToggleSplit={toggleSplit}
-/>
-
+      <ActivityBar
+        activeMode={sidebarMode}
+        sidebarOpen={sidebarOpen}
+        onSelect={handleSelectMode}
+        onExportNotes={handleExportNotes}
+        splitActive={splitActive}
+        onToggleSplit={toggleSplit}
+      />
 
       <View style={styles.mainArea}>
         <TabBar tabs={openTabs} activePath={activePath} onSelect={handleTabSelect} onClose={handleCloseTab} />
 
         {activeTab || splitTab ? (
-          <View
-            style={[
-              styles.panesRow,
-              isNarrowScreen && styles.panesColumn,
-            ]}
-          >
+          <View style={[styles.panesRow, isNarrowScreen && styles.panesColumn]}>
             <View style={splitActive ? styles.paneHalf : styles.paneFull}>
               <EditorPane
                 tab={activeTab}
@@ -402,7 +385,7 @@ export default function IDEScreen({ route }: Props) {
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="code-slash-outline" size={48} color="#3c3c3c" />
+            <Ionicons name="code-slash-outline" size={48} color={colors.surfaceAlt} />
             <Text style={styles.emptyStateText}>Koi file nahi khuli</Text>
             <Text style={styles.emptyStateSubText}>Sidebar se ek file select karo</Text>
           </View>
@@ -427,80 +410,39 @@ export default function IDEScreen({ route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#1e1e1e',
-  },
-  loadingScreen: {
-    flex: 1,
-    backgroundColor: '#1e1e1e',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    color: '#858585',
-    marginTop: 12,
-    fontSize: 13,
-  },
-  mainArea: {
-    flex: 1,
-  },
-  backdrop: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: ACTIVITY_BAR_WIDTH,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  overlaySidebar: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: ACTIVITY_BAR_WIDTH,
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  panesRow: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  panesColumn: {
-    flexDirection: 'column',
-  },
-  paneFull: {
-    flex: 1,
-  },
-  paneHalf: {
-    flex: 1,
-  },
-  paneDividerVertical: {
-    width: 1,
-    backgroundColor: '#000000',
-  },
-  paneDividerHorizontal: {
-    height: 1,
-    backgroundColor: '#000000',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyStateText: {
-    color: '#5a5a5a',
-    fontSize: 15,
-    marginTop: 12,
-    fontWeight: '600',
-  },
-  emptyStateSubText: {
-    color: '#4a4a4a',
-    fontSize: 12,
-    marginTop: 4,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    root: { flex: 1, flexDirection: 'row', backgroundColor: colors.background },
+    loadingScreen: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+    loadingText: { color: colors.textMuted, marginTop: 12, fontSize: 13 },
+    mainArea: { flex: 1 },
+    backdrop: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: ACTIVITY_BAR_WIDTH,
+      right: 0,
+      backgroundColor: colors.overlay,
+    },
+    overlaySidebar: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: ACTIVITY_BAR_WIDTH,
+      shadowColor: '#000',
+      shadowOffset: { width: 2, height: 0 },
+      shadowOpacity: 0.4,
+      shadowRadius: 6,
+      elevation: 8,
+    },
+    panesRow: { flex: 1, flexDirection: 'row' },
+    panesColumn: { flexDirection: 'column' },
+    paneFull: { flex: 1 },
+    paneHalf: { flex: 1 },
+    paneDividerVertical: { width: 1, backgroundColor: colors.border },
+    paneDividerHorizontal: { height: 1, backgroundColor: colors.border },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    emptyStateText: { color: colors.textDim, fontSize: 15, marginTop: 12, fontWeight: '600' },
+    emptyStateSubText: { color: colors.textFaint, fontSize: 12, marginTop: 4 },
+  });
+}

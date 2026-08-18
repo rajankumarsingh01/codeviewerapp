@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import { extractZipToLocal } from '../utils/zipExtractor';
 import { getProjects, removeProject, touchProjectOpened, ProjectMeta } from '../utils/storage';
 import { deleteProjectFolder } from '../utils/fileSystem';
 import { deleteNotesUnderPath, deleteLineNotesUnderPath, deleteEditedContentUnderPath } from '../utils/notesStorage';
-
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -33,6 +33,9 @@ function timeAgo(ts: number): string {
 }
 
 export default function HomeScreen({ navigation }: Props) {
+  const { colors, isDark, toggleTheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
@@ -110,11 +113,11 @@ export default function HomeScreen({ navigation }: Props) {
             onPress: async () => {
               await deleteProjectFolder(project.path);
               await removeProject(project.path);
-              
-              await deleteLineNotesUnderPath(project.path); 
 
-              await deleteEditedContentUnderPath(project.path); 
-              
+              await deleteLineNotesUnderPath(project.path);
+
+              await deleteEditedContentUnderPath(project.path);
+
               loadProjects();
             },
           },
@@ -131,22 +134,28 @@ export default function HomeScreen({ navigation }: Props) {
           <Text style={styles.title}>My Projects</Text>
           <Text style={styles.subtitle}>Zip import karke code padho</Text>
         </View>
-        {loading ? (
-          <ActivityIndicator color="#007ACC" />
-        ) : (
-          <TouchableOpacity style={styles.importBtn} onPress={handleImportProject}>
-            <Ionicons name="add" size={20} color="#fff" />
+        <View style={styles.topBarRight}>
+          {/* Naya: Theme toggle button */}
+          <TouchableOpacity style={styles.themeBtn} onPress={toggleTheme} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-        )}
+          {loading ? (
+            <ActivityIndicator color={colors.accent} />
+          ) : (
+            <TouchableOpacity style={styles.importBtn} onPress={handleImportProject}>
+              <Ionicons name="add" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {projectsLoading ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator size="large" color="#007ACC" />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : projects.length === 0 ? (
         <View style={styles.centerFill}>
-          <Ionicons name="code-slash" size={54} color="#007ACC" style={{ marginBottom: 16 }} />
+          <Ionicons name="code-slash" size={54} color={colors.accent} style={{ marginBottom: 16 }} />
           <Text style={styles.emptyTitle}>Koi project abhi tak nahi</Text>
           <Text style={styles.emptySubtitle}>Shuru karne ke liye ek project zip import karo</Text>
           <TouchableOpacity style={styles.button} onPress={handleImportProject}>
@@ -161,7 +170,7 @@ export default function HomeScreen({ navigation }: Props) {
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.projectRow} onPress={() => handleOpenProject(item)}>
-              <Ionicons name="folder" size={22} color="#c09553" style={{ marginRight: 12 }} />
+              <Ionicons name="folder" size={22} color={colors.folderIcon} style={{ marginRight: 12 }} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.projectName} numberOfLines={1}>
                   {item.name}
@@ -173,7 +182,7 @@ export default function HomeScreen({ navigation }: Props) {
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 style={styles.deleteBtn}
               >
-                <Ionicons name="trash-outline" size={18} color="#e06c75" />
+                <Ionicons name="trash-outline" size={18} color={colors.danger} />
               </TouchableOpacity>
             </TouchableOpacity>
           )}
@@ -183,93 +192,24 @@ export default function HomeScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1e1e1e',
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#9a9a9a',
-    marginTop: 2,
-  },
-  importBtn: {
-    backgroundColor: '#007ACC',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerFill: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#9a9a9a',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  button: {
-    flexDirection: 'row',
-    backgroundColor: '#007ACC',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  listContent: {
-    paddingHorizontal: 14,
-    paddingTop: 4,
-  },
-  projectRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#252526',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 8,
-  },
-  projectName: {
-    fontSize: 15,
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  projectMeta: {
-    fontSize: 12,
-    color: '#858585',
-    marginTop: 2,
-  },
-  deleteBtn: {
-    padding: 4,
-    marginLeft: 8,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+    topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    title: { fontSize: 22, fontWeight: 'bold', color: colors.textPrimary },
+    subtitle: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+    themeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceAlt },
+    importBtn: { backgroundColor: colors.accent, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+    centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.textPrimary, marginBottom: 4 },
+    emptySubtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 24, textAlign: 'center' },
+    button: { flexDirection: 'row', backgroundColor: colors.accent, paddingVertical: 14, paddingHorizontal: 24, borderRadius: 6, alignItems: 'center' },
+    buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    listContent: { paddingHorizontal: 14, paddingTop: 4 },
+    projectRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 8 },
+    projectName: { fontSize: 15, color: colors.textPrimary, fontWeight: '600' },
+    projectMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+    deleteBtn: { padding: 4, marginLeft: 8 },
+  });
+}

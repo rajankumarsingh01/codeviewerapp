@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { TreeNode, SearchResults } from '../utils/fileSystem';
 import TreeItem from './TreeItem';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 type SidebarMode = 'explorer' | 'search';
 
@@ -36,6 +37,9 @@ interface Props {
 }
 
 export default function Sidebar(props: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (props.mode === 'search') {
     const rows: ResultRow[] = props.searchResults
       ? [
@@ -56,11 +60,11 @@ export default function Sidebar(props: Props) {
       <View style={styles.panel}>
         <Text style={styles.header}>SEARCH</Text>
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={14} color="#858585" />
+          <Ionicons name="search" size={14} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Files aur code me dhundo"
-            placeholderTextColor="#6a6a6a"
+            placeholderTextColor={colors.placeholder}
             value={props.searchQuery}
             onChangeText={props.onSearchQueryChange}
             onSubmitEditing={props.onSearchSubmit}
@@ -71,7 +75,7 @@ export default function Sidebar(props: Props) {
         </View>
 
         {props.searching ? (
-          <ActivityIndicator color="#007ACC" style={{ marginTop: 24 }} />
+          <ActivityIndicator color={colors.accent} style={{ marginTop: 24 }} />
         ) : (
           <FlatList
             data={rows}
@@ -130,7 +134,7 @@ export default function Sidebar(props: Props) {
           {props.projectName.toUpperCase()}
         </Text>
         <TouchableOpacity onPress={props.onCollapseAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="remove-circle-outline" size={16} color="#858585" />
+          <Ionicons name="remove-circle-outline" size={16} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
       <FlatList
@@ -152,81 +156,29 @@ export default function Sidebar(props: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  panel: {
-    flex: 1,
-    backgroundColor: '#252526',
-  },
-  header: {
-    color: '#bbbbbb',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  explorerHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingRight: 12,
-  },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#3c3c3c',
-    marginHorizontal: 10,
-    marginBottom: 8,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-    height: 32,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#ffffff',
-    fontSize: 13,
-    marginLeft: 6,
-    padding: 0,
-  },
-  resultRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  resultFileName: {
-    color: '#cccccc',
-    fontSize: 13,
-    flex: 1,
-  },
-  matchRow: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-  },
-  matchFileName: {
-    color: '#9cdcfe',
-    fontSize: 12,
-  },
-  matchLineNum: {
-    color: '#6a9955',
-  },
-  matchLineText: {
-    color: '#aaaaaa',
-    fontSize: 12,
-    fontFamily: 'monospace',
-    marginTop: 1,
-  },
-  emptyText: {
-    color: '#6a6a6a',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 20,
-    paddingHorizontal: 10,
-  },
-  truncatedText: {
-    color: '#c586c0',
-    fontSize: 11,
-    textAlign: 'center',
-    paddingVertical: 10,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    panel: { flex: 1, backgroundColor: colors.surface },
+    header: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5, paddingHorizontal: 12, paddingVertical: 10 },
+    explorerHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 12 },
+    searchBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.inputBg,
+      marginHorizontal: 10,
+      marginBottom: 8,
+      paddingHorizontal: 8,
+      borderRadius: 4,
+      height: 32,
+    },
+    searchInput: { flex: 1, color: colors.textPrimary, fontSize: 13, marginLeft: 6, padding: 0 },
+    resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 10 },
+    resultFileName: { color: colors.textSecondary, fontSize: 13, flex: 1 },
+    matchRow: { paddingVertical: 5, paddingHorizontal: 10 },
+    matchFileName: { color: colors.accent, fontSize: 12 },
+    matchLineNum: { color: colors.success },
+    matchLineText: { color: colors.textDim, fontSize: 12, fontFamily: 'monospace', marginTop: 1 },
+    emptyText: { color: colors.placeholder, fontSize: 12, textAlign: 'center', marginTop: 20, paddingHorizontal: 10 },
+    truncatedText: { color: colors.textMuted, fontSize: 11, textAlign: 'center', paddingVertical: 10 },
+  });
+}
