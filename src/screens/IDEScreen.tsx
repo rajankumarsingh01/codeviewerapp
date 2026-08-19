@@ -22,7 +22,19 @@ import {
   TreeNode,
   SearchResults,
 } from '../utils/fileSystem';
-import { getProjectSession, saveProjectSession, touchProjectOpened } from '../utils/storage';
+import {
+  getProjectSession,
+  saveProjectSession,
+  touchProjectOpened,
+  getBookmarks,
+  toggleBookmark,
+  BookmarkEntry,
+  getRecentFiles,
+  addRecentFile,
+  clearRecentFiles,
+  RecentFileEntry,
+  MAX_RECENT_FILES,
+} from '../utils/storage';
 
 import { exportAllNotes } from '../utils/notesStorage';
 
@@ -87,6 +99,9 @@ export default function IDEScreen({ route }: Props) {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
 
+  const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
+  const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>([]);
+
   const sessionRestoredRef = useRef(false);
 
   useEffect(() => {
@@ -111,6 +126,13 @@ export default function IDEScreen({ route }: Props) {
         }
       }
       sessionRestoredRef.current = true;
+
+      const [savedBookmarks, savedRecent] = await Promise.all([
+        getBookmarks(projectPath),
+        getRecentFiles(projectPath),
+      ]);
+      setBookmarks(savedBookmarks);
+      setRecentFiles(savedRecent);
     })();
   }, [projectPath]);
 
@@ -136,6 +158,19 @@ export default function IDEScreen({ route }: Props) {
 
   const allFiles = useMemo(() => flattenFiles(tree), [tree]);
 
+  const bookmarkedPaths = useMemo(() => new Set(bookmarks.map((b) => b.path)), [bookmarks]);
+
+  const recordRecentFile = useCallback(
+    (path: string, name: string) => {
+      setRecentFiles((prev) => {
+        const next = [{ path, name, openedAt: Date.now() }, ...prev.filter((f) => f.path !== path)];
+        return next.slice(0, MAX_RECENT_FILES);
+      });
+      addRecentFile(projectPath, path, name);
+    },
+    [projectPath]
+  );
+
   const openFile = useCallback(
     (path: string, name: string, forcePane?: FocusedPane) => {
       setOpenTabs((prev) => {
@@ -158,11 +193,13 @@ export default function IDEScreen({ route }: Props) {
         setFileViewMode('code');
       }
 
+      recordRecentFile(path, name);
+
       if (isNarrowScreen) {
         setSidebarOpen(false);
       }
     },
-    [isNarrowScreen, splitActive, focusedPane]
+    [isNarrowScreen, splitActive, focusedPane, recordRecentFile]
   );
 
   const toggleSplit = useCallback(() => {
@@ -255,6 +292,19 @@ export default function IDEScreen({ route }: Props) {
     [openFile]
   );
 
+  const handleToggleBookmark = useCallback(
+    async (path: string, name: string) => {
+      const next = await toggleBookmark(projectPath, path, name);
+      setBookmarks(next);
+    },
+    [projectPath]
+  );
+
+  const handleClearRecent = useCallback(async () => {
+    await clearRecentFiles(projectPath);
+    setRecentFiles([]);
+  }, [projectPath]);
+
   const handleSelectMode = useCallback(
     (mode: SidebarMode) => {
       if (mode === sidebarMode && sidebarOpen) {
@@ -320,6 +370,11 @@ export default function IDEScreen({ route }: Props) {
       searching={searching}
       searchResults={searchResults}
       onSearchResultPress={handleSearchResultPress}
+      bookmarkedPaths={bookmarkedPaths}
+      onToggleBookmark={handleToggleBookmark}
+      bookmarks={bookmarks}
+      recentFiles={recentFiles}
+      onClearRecent={handleClearRecent}
     />
   );
 

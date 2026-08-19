@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { TreeNode, SearchResults } from '../utils/fileSystem';
+import type { BookmarkEntry, RecentFileEntry } from '../utils/storage';
 import TreeItem from './TreeItem';
 import { useTheme, ThemeColors } from '../context/ThemeContext';
 
-type SidebarMode = 'explorer' | 'search';
+type SidebarMode = 'explorer' | 'search' | 'bookmarks' | 'recent';
 
 type ResultRow =
   | { type: 'file'; node: TreeNode }
@@ -34,6 +35,11 @@ interface Props {
   searching: boolean;
   searchResults: SearchResults | null;
   onSearchResultPress: (filePath: string, fileName: string, lineNumber?: number) => void;
+  bookmarkedPaths: Set<string>;
+  onToggleBookmark: (path: string, name: string) => void;
+  bookmarks: BookmarkEntry[];
+  recentFiles: RecentFileEntry[];
+  onClearRecent: () => void;
 }
 
 export default function Sidebar(props: Props) {
@@ -127,6 +133,76 @@ export default function Sidebar(props: Props) {
     );
   }
 
+  if (props.mode === 'bookmarks') {
+    return (
+      <View style={styles.panel}>
+        <Text style={styles.header}>BOOKMARKS</Text>
+        <FlatList
+          data={props.bookmarks}
+          keyExtractor={(item) => item.path}
+          renderItem={({ item }) => (
+            <View style={styles.listRow}>
+              <TouchableOpacity
+                style={styles.listRowMain}
+                onPress={() => props.onSearchResultPress(item.path, item.name)}
+              >
+                <Ionicons name="document-text-outline" size={14} color="#8fb8de" style={{ marginRight: 6 }} />
+                <Text style={styles.resultFileName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.starBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => props.onToggleBookmark(item.path, item.name)}
+              >
+                <Ionicons name="star" size={14} color={colors.folderIcon} />
+              </TouchableOpacity>
+            </View>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>
+              Koi bookmark nahi hai abhi tak. File explorer me kisi file ke star icon ko tap karo.
+            </Text>
+          }
+        />
+      </View>
+    );
+  }
+
+  if (props.mode === 'recent') {
+    return (
+      <View style={styles.panel}>
+        <View style={styles.explorerHeaderRow}>
+          <Text style={styles.header}>RECENT FILES</Text>
+          {props.recentFiles.length > 0 && (
+            <TouchableOpacity onPress={props.onClearRecent} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="trash-outline" size={15} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+        <FlatList
+          data={props.recentFiles}
+          keyExtractor={(item) => item.path}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.resultRow}
+              onPress={() => props.onSearchResultPress(item.path, item.name)}
+            >
+              <Ionicons name="document-text-outline" size={14} color="#8fb8de" style={{ marginRight: 6 }} />
+              <Text style={styles.resultFileName} numberOfLines={1}>
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>Abhi tak koi file open nahi ki gayi hai.</Text>
+          }
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.panel}>
       <View style={styles.explorerHeaderRow}>
@@ -148,6 +224,8 @@ export default function Sidebar(props: Props) {
             activePath={props.activePath}
             onFilePress={props.onFilePress}
             onToggleExpand={props.onToggleExpand}
+            bookmarkedPaths={props.bookmarkedPaths}
+            onToggleBookmark={props.onToggleBookmark}
           />
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>Koi files nahi mili</Text>}
@@ -178,6 +256,9 @@ function createStyles(colors: ThemeColors) {
     matchFileName: { color: colors.accent, fontSize: 12 },
     matchLineNum: { color: colors.success },
     matchLineText: { color: colors.textDim, fontSize: 12, fontFamily: 'monospace', marginTop: 1 },
+    listRow: { flexDirection: 'row', alignItems: 'center', paddingRight: 10 },
+    listRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingLeft: 10 },
+    starBtn: { paddingLeft: 6, paddingVertical: 6 },
     emptyText: { color: colors.placeholder, fontSize: 12, textAlign: 'center', marginTop: 20, paddingHorizontal: 10 },
     truncatedText: { color: colors.textMuted, fontSize: 11, textAlign: 'center', paddingVertical: 10 },
   });

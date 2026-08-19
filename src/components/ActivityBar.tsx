@@ -3,7 +3,7 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useTheme, ThemeColors } from '../context/ThemeContext';
 
-export type SidebarMode = 'explorer' | 'search';
+export type SidebarMode = 'explorer' | 'search' | 'bookmarks' | 'recent';
 
 interface Props {
   activeMode: SidebarMode;
@@ -28,6 +28,8 @@ export default function ActivityBar({
 
   const isExplorerActive = sidebarOpen && activeMode === 'explorer';
   const isSearchActive = sidebarOpen && activeMode === 'search';
+  const isBookmarksActive = sidebarOpen && activeMode === 'bookmarks';
+  const isRecentActive = sidebarOpen && activeMode === 'recent';
 
   return (
     <View style={styles.bar}>
@@ -42,6 +44,18 @@ export default function ActivityBar({
         onPress={() => onSelect('search')}
       >
         <Ionicons name="search" size={20} color={isSearchActive ? colors.textPrimary : colors.textMuted} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.iconBtn, isBookmarksActive && styles.activeIconBtn]}
+        onPress={() => onSelect('bookmarks')}
+      >
+        <Ionicons name="star-outline" size={20} color={isBookmarksActive ? colors.textPrimary : colors.textMuted} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.iconBtn, isRecentActive && styles.activeIconBtn]}
+        onPress={() => onSelect('recent')}
+      >
+        <Ionicons name="time-outline" size={20} color={isRecentActive ? colors.textPrimary : colors.textMuted} />
       </TouchableOpacity>
 
       <View style={styles.spacer} />
@@ -61,7 +75,7 @@ export default function ActivityBar({
         </TouchableOpacity>
       )}
 
-      {/* Naya: Theme toggle button — bottom me */}
+      {/* Theme toggle button — bottom me */}
       <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
         <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={colors.textMuted} />
       </TouchableOpacity>
