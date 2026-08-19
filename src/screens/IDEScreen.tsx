@@ -20,6 +20,7 @@ import {
   flattenFiles,
   searchProject,
   computeProjectStats,
+  createNewFile,
   TreeNode,
   SearchResults,
 } from '../utils/fileSystem';
@@ -43,6 +44,7 @@ import ActivityBar, { SidebarMode } from '../components/ActivityBar';
 import Sidebar from '../components/Sidebar';
 import TabBar, { OpenTab } from '../components/TabBar';
 import EditorPane, { FileViewMode } from '../components/EditorPane';
+import NewFileModal from '../components/NewFileModal';
 import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -105,6 +107,11 @@ export default function IDEScreen({ route }: Props) {
 
   const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
   const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>([]);
+
+  // Naya: New File modal state — kis folder me file banani hai, koi error, create ho raha hai
+  const [newFileTargetDir, setNewFileTargetDir] = useState<string | null>(null);
+  const [newFileError, setNewFileError] = useState<string | null>(null);
+  const [creatingFile, setCreatingFile] = useState(false);
 
   const sessionRestoredRef = useRef(false);
 
@@ -374,6 +381,53 @@ export default function IDEScreen({ route }: Props) {
     [splitActive, focusedPane]
   );
 
+  // Naya: "New File" button/icon tap hone par modal khulta hai us folder ke liye
+  const handleOpenNewFileModal = useCallback((dirPath: string) => {
+    setNewFileError(null);
+    setNewFileTargetDir(dirPath);
+  }, []);
+
+  const handleCloseNewFileModal = useCallback(() => {
+    setNewFileTargetDir(null);
+    setNewFileError(null);
+  }, []);
+
+  // Naya: file create karo, tree refresh karo, us folder ko expand karo, aur nayi file
+  // seedha khol do editor me — taaki user turant likhna shuru kar sake
+  const handleConfirmCreateFile = useCallback(
+    async (fileName: string) => {
+      if (!newFileTargetDir) return;
+      setCreatingFile(true);
+      setNewFileError(null);
+
+      const result = await createNewFile(newFileTargetDir, fileName);
+
+      setCreatingFile(false);
+
+      if (!result.success || !result.path) {
+        setNewFileError(result.error || 'File nahi ban saki');
+        return;
+      }
+
+      // Poori tree refresh karo taaki nayi file dikhe
+      const refreshedTree = await readDirectoryTree(projectPath);
+      setTree(refreshedTree);
+
+      // Target folder ko expand kar do (root ke case me ye no-op hai)
+      if (newFileTargetDir !== projectPath) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setExpandedPaths((prev) => new Set(prev).add(newFileTargetDir));
+      }
+
+      setNewFileTargetDir(null);
+      setNewFileError(null);
+
+      // Nayi file seedha khol do taaki user likhna shuru kar sake
+      openFile(result.path, fileName);
+    },
+    [newFileTargetDir, projectPath, openFile]
+  );
+
   const handleExportNotes = useCallback(async () => {
     const text = await exportAllNotes(projectName, projectPath, allFiles);
     if (!text) {
@@ -400,6 +454,7 @@ export default function IDEScreen({ route }: Props) {
     <Sidebar
       mode={sidebarMode}
       projectName={projectName}
+      projectPath={projectPath}
       tree={tree}
       stats={projectStats}
       expandedPaths={expandedPaths}
@@ -419,6 +474,7 @@ export default function IDEScreen({ route }: Props) {
       bookmarks={bookmarks}
       recentFiles={recentFiles}
       onClearRecent={handleClearRecent}
+      onCreateFile={handleOpenNewFileModal}
     />
   );
 
@@ -505,6 +561,23 @@ export default function IDEScreen({ route }: Props) {
       {!isNarrowScreen && sidebarOpen && (
         <View style={{ width: sidebarWidth }}>{sidebarElement}</View>
       )}
+
+      <NewFileModal
+        visible={newFileTargetDir != null}
+        targetLabel={
+          newFileTargetDir
+            ? newFileTargetDir === projectPath
+              ? `${projectName} (root)`
+              : newFileTargetDir
+                  .replace(projectPath, '')
+                  .replace(/\/$/, '') || `${projectName} (root)`
+            : ''
+        }
+        errorText={newFileError}
+        creating={creatingFile}
+        onCreate={handleConfirmCreateFile}
+        onClose={handleCloseNewFileModal}
+      />
     </View>
   );
 }

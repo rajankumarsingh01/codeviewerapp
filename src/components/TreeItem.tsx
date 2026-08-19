@@ -13,6 +13,7 @@ interface Props {
   onToggleExpand: (path: string) => void;
   bookmarkedPaths?: Set<string>;
   onToggleBookmark?: (path: string, name: string) => void;
+  onCreateFile?: (dirPath: string) => void;
 }
 
 // VS Code jaisi file-extension based icon colors — dono themes me same rehte hain
@@ -46,6 +47,7 @@ export default function TreeItem({
   onToggleExpand,
   bookmarkedPaths,
   onToggleBookmark,
+  onCreateFile,
 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -100,6 +102,16 @@ export default function TreeItem({
             />
           </TouchableOpacity>
         )}
+
+        {node.isDirectory && onCreateFile && (
+          <TouchableOpacity
+            style={styles.newFileBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => onCreateFile(node.path)}
+          >
+            <Ionicons name="add" size={15} color={colors.textFaint} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {node.isDirectory && expanded && node.children && (
@@ -115,6 +127,7 @@ export default function TreeItem({
               onToggleExpand={onToggleExpand}
               bookmarkedPaths={bookmarkedPaths}
               onToggleBookmark={onToggleBookmark}
+              onCreateFile={onCreateFile}
             />
           ))}
         </View>
@@ -133,5 +146,6 @@ function createStyles(colors: ThemeColors) {
     name: { fontSize: 13, color: colors.textSecondary, flex: 1 },
     activeName: { color: colors.textPrimary, fontWeight: '600' },
     starBtn: { paddingLeft: 6, paddingVertical: 5 },
+    newFileBtn: { paddingLeft: 6, paddingVertical: 5 },
   });
 }

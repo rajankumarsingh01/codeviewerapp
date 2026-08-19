@@ -209,6 +209,47 @@ export async function searchProject(
   return result;
 }
 
+export interface CreateFileResult {
+  success: boolean;
+  path?: string;
+  error?: string;
+}
+
+// Naya: kisi bhi folder ke andar (ya project root me) ek nayi khaali file banata hai.
+// dirPath hamesha trailing slash ke saath hona chahiye (jaise readDirectoryTree deta hai).
+export async function createNewFile(dirPath: string, fileName: string): Promise<CreateFileResult> {
+  const trimmedName = fileName.trim();
+
+  if (!trimmedName) {
+    return { success: false, error: 'File ka naam khaali nahi ho sakta' };
+  }
+  if (trimmedName.includes('/') || trimmedName.includes('\\')) {
+    return { success: false, error: 'File ke naam me / ya \\ nahi ho sakta' };
+  }
+  if (trimmedName === '.' || trimmedName === '..') {
+    return { success: false, error: 'Ye ek valid file naam nahi hai' };
+  }
+
+  const normalizedDir = dirPath.endsWith('/') ? dirPath : `${dirPath}/`;
+  const fullPath = `${normalizedDir}${trimmedName}`;
+
+  try {
+    const existing = await FileSystem.getInfoAsync(fullPath);
+    if (existing.exists) {
+      return { success: false, error: 'Is naam ki file/folder pehle se maujood hai' };
+    }
+
+    await FileSystem.writeAsStringAsync(fullPath, '', {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    return { success: true, path: fullPath };
+  } catch (error) {
+    console.error('Error creating file:', fullPath, error);
+    return { success: false, error: 'File nahi ban saki, dobara try karo' };
+  }
+}
+
 // Project ka poora folder delete karo (Project Management > Delete)
 export async function deleteProjectFolder(projectPath: string): Promise<void> {
   try {

@@ -76,6 +76,7 @@ function HighlightedText({
 interface Props {
   mode: SidebarMode;
   projectName: string;
+  projectPath: string;
   tree: TreeNode[];
   stats: ProjectStats;
   expandedPaths: Set<string>;
@@ -95,6 +96,7 @@ interface Props {
   bookmarks: BookmarkEntry[];
   recentFiles: RecentFileEntry[];
   onClearRecent: () => void;
+  onCreateFile: (dirPath: string) => void;
 }
 
 export default function Sidebar(props: Props) {
@@ -317,9 +319,18 @@ export default function Sidebar(props: Props) {
         <Text style={styles.explorerHeader} numberOfLines={1}>
           {props.projectName.toUpperCase()}
         </Text>
-        <TouchableOpacity onPress={props.onCollapseAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="remove-circle-outline" size={16} color={colors.textMuted} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => props.onCreateFile(props.projectPath)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ marginRight: 12 }}
+          >
+            <Ionicons name="document-outline" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={props.onCollapseAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="remove-circle-outline" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
       </View>
       <Text style={styles.statsText}>
         {props.stats.fileCount} files · {props.stats.folderCount} folders · {formatBytes(props.stats.totalSize)}
@@ -337,6 +348,7 @@ export default function Sidebar(props: Props) {
             onToggleExpand={props.onToggleExpand}
             bookmarkedPaths={props.bookmarkedPaths}
             onToggleBookmark={props.onToggleBookmark}
+            onCreateFile={props.onCreateFile}
           />
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>Koi files nahi mili</Text>}
@@ -352,6 +364,7 @@ function createStyles(colors: ThemeColors) {
     explorerHeader: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 2 },
     statsText: { color: colors.textFaint, fontSize: 10, paddingHorizontal: 12, paddingBottom: 8 },
     explorerHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 12 },
+    headerActions: { flexDirection: 'row', alignItems: 'center' },
     searchBox: {
       flexDirection: 'row',
       alignItems: 'center',
