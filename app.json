@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "CodeViewerApp",
-    "slug": "CodeViewerApp",
+    "name": "CodeViewer",
+    "slug": "CodeViewer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,9 +14,11 @@
       "backgroundColor": "#0D1117"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rajankumarsingh.codeviewer"
     },
     "android": {
+      "package": "com.rajankumarsingh.codeviewer",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D1117"
@@ -26,6 +28,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "23e471ed-10af-4d7f-9e0a-03f6729660ce"
+      }
+    },
+    "owner": "rajankumarsingh"
   }
 }
