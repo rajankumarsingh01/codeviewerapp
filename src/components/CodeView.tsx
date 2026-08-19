@@ -27,6 +27,7 @@ import {
 import LineCommentModal from './LineCommentModal';
 import { useTheme, ThemeColors } from '../context/ThemeContext';
 
+import MarkdownView from './MarkdownView'; 
 interface Props {
   filePath: string;
   fileName: string;
@@ -62,6 +63,8 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
   const [selectMode, setSelectMode] = useState(false);
   const [selection, setSelection] = useState<LineSelection | null>(null);
   const [selectionCopied, setSelectionCopied] = useState(false);
+
+    const [mdPreview, setMdPreview] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +108,11 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
   useEffect(() => {
     setSelectMode(false);
     setSelection(null);
+  }, [filePath]);
+
+
+    useEffect(() => {
+    setMdPreview(true);
   }, [filePath]);
 
   const displayContent = editedOverride ?? originalContent;
@@ -212,6 +220,9 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
   }, [displayContent, fileName, isDark]);
 
   const language = useMemo(() => getLanguageFromFileName(fileName), [fileName]);
+
+
+  const isMarkdown = language === 'markdown'; 
 
   const ROW_HEIGHT = fontSize + 10;
 
@@ -340,6 +351,52 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
     );
   }
 
+  // Markdown Preview mode — readable, formatted view jaise GitHub par README dikhta hai
+  if (isMarkdown && mdPreview && !editing) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.langBar}>
+          <View style={styles.langBarLeft}>
+            <Text style={styles.langText}>{language}</Text>
+            <Text style={styles.lineCountText}>Preview</Text>
+            {editedOverride !== null && (
+              <View style={styles.editedBadge}>
+                <Text style={styles.editedBadgeText}>Edited</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.langBarRight}>
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={() => setMdPreview(false)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="code-slash-outline" size={13} color={colors.textSecondary} />
+              <Text style={styles.copyBtnText}>Code</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.copyBtn}
+              onPress={handleCopyFile}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons
+                name={copied ? 'checkmark' : 'copy-outline'}
+                size={14}
+                color={copied ? colors.success : colors.textSecondary}
+              />
+              <Text style={[styles.copyBtnText, copied && { color: colors.success }]}>
+                {copied ? 'Copied!' : 'Copy File'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <MarkdownView content={displayContent || ''} fontSize={fontSize} />
+      </View>
+    );
+  }
+
+
+
   const listElement = (
     <FlatList
       ref={listRef}
@@ -430,8 +487,18 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
                 <Text style={styles.saveEditBtnText}>{selectionCopied ? 'Copied!' : 'Copy'}</Text>
               </TouchableOpacity>
             </>
-          ) : (
+               ) : (
             <>
+              {isMarkdown && (
+                <TouchableOpacity
+                  style={styles.copyBtn}
+                  onPress={() => setMdPreview(true)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Ionicons name="eye-outline" size={13} color={colors.textSecondary} />
+                  <Text style={styles.copyBtnText}>Preview</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.copyBtn}
                 onPress={handleEnterEdit}

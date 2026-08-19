@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 export type SidebarMode = 'explorer' | 'search' | 'bookmarks' | 'recent';
@@ -24,6 +25,7 @@ export default function ActivityBar({
   onToggleSplit,
 }: Props) {
   const { colors, isDark, toggleTheme } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const isExplorerActive = sidebarOpen && activeMode === 'explorer';
@@ -32,7 +34,7 @@ export default function ActivityBar({
   const isRecentActive = sidebarOpen && activeMode === 'recent';
 
   return (
-    <View style={styles.bar}>
+    <View style={[styles.bar, { paddingBottom: 8 + insets.bottom }]}>
       <TouchableOpacity
         style={[styles.iconBtn, isExplorerActive && styles.activeIconBtn]}
         onPress={() => onSelect('explorer')}
@@ -75,8 +77,12 @@ export default function ActivityBar({
         </TouchableOpacity>
       )}
 
-      {/* Theme toggle button — bottom me */}
-      <TouchableOpacity style={styles.iconBtn} onPress={toggleTheme}>
+      {/* Theme toggle button — bottom me, safe-area ke andar ab reachable hai */}
+      <TouchableOpacity
+        style={styles.iconBtn}
+        onPress={toggleTheme}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
         <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={colors.textMuted} />
       </TouchableOpacity>
     </View>
