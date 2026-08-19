@@ -18,8 +18,60 @@ import { useTheme, ThemeColors } from '../context/ThemeContext';
 type SidebarMode = 'explorer' | 'search' | 'bookmarks' | 'recent';
 
 type ResultRow =
+  | { type: 'section'; label: string }
   | { type: 'file'; node: TreeNode }
+  | { type: 'group'; filePath: string; fileName: string; count: number }
   | { type: 'match'; filePath: string; fileName: string; lineNumber: number; lineText: string };
+
+// Query ke matching hisse ko highlight karta hai (case-insensitive), baaki normal
+function HighlightedText({
+  text,
+  query,
+  style,
+  highlightStyle,
+  numberOfLines,
+}: {
+  text: string;
+  query: string;
+  style: any;
+  highlightStyle: any;
+  numberOfLines?: number;
+}) {
+  const q = query.trim();
+  if (!q) {
+    return (
+      <Text style={style} numberOfLines={numberOfLines}>
+        {text}
+      </Text>
+    );
+  }
+  const lower = text.toLowerCase();
+  const qLower = q.toLowerCase();
+  const parts: { text: string; match: boolean }[] = [];
+  let cursor = 0;
+  let idx = lower.indexOf(qLower, cursor);
+  while (idx !== -1) {
+    if (idx > cursor) parts.push({ text: text.slice(cursor, idx), match: false });
+    parts.push({ text: text.slice(idx, idx + q.length), match: true });
+    cursor = idx + q.length;
+    idx = lower.indexOf(qLower, cursor);
+  }
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), match: false });
+
+  return (
+    <Text style={style} numberOfLines={numberOfLines}>
+      {parts.map((p, i) =>
+        p.match ? (
+          <Text key={i} style={highlightStyle}>
+            {p.text}
+          </Text>
+        ) : (
+          <Text key={i}>{p.text}</Text>
+        )
+      )}
+    </Text>
+  );
+}
 
 interface Props {
   mode: SidebarMode;
@@ -34,6 +86,7 @@ interface Props {
   searchQuery: string;
   onSearchQueryChange: (q: string) => void;
   onSearchSubmit: () => void;
+  onSearchClear: () => void;
   searching: boolean;
   searchResults: SearchResults | null;
   onSearchResultPress: (filePath: string, fileName: string, lineNumber?: number) => void;
@@ -49,20 +102,34 @@ export default function Sidebar(props: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   if (props.mode === 'search') {
-    const rows: ResultRow[] = props.searchResults
-      ? [
-          ...props.searchResults.fileMatches.map((f): ResultRow => ({ type: 'file', node: f })),
-          ...props.searchResults.contentMatches.map(
-            (m): ResultRow => ({
-              type: 'match',
-              filePath: m.filePath,
-              fileName: m.fileName,
-              lineNumber: m.lineNumber,
-              lineText: m.lineText,
-            })
-          ),
-        ]
-      : [];
+    const q = props.searchQuery.trim();
+    const results = props.searchResults;
+
+    const rows: ResultRow[] = [];
+    if (results) {
+      if (results.fileMatches.length > 0) {
+        rows.push({ type: 'section', label: `FILES (${results.fileMatches.length})` });
+        for (const f of results.fileMatches) rows.push({ type: 'file', node: f });
+      }
+      if (results.contentMatches.length > 0) {
+        const fileCount = new Set(results.contentMatches.map((m) => m.filePath)).size;
+        rows.push({
+          type: 'section',
+          label: `IN CONTENTS (${results.contentMatches.length} in ${fileCount} files)`,
+        });
+        let lastPath: string | null = null;
+        for (const m of results.contentMatches) {
+          if (m.filePath !== lastPath) {
+            const countInFile = results.contentMatches.filter((x) => x.filePath === m.filePath).length;
+            rows.push({ type: 'group', filePath: m.filePath, fileName: m.fileName, count: countInFile });
+            lastPath = m.filePath;
+          }
+          rows.push({ type: 'match', filePath: m.filePath, fileName: m.fileName, lineNumber: m.lineNumber, lineText: m.lineText });
+        }
+      }
+    }
+
+    const totalCount = results ? results.fileMatches.length + results.contentMatches.length : 0;
 
     return (
       <View style={styles.panel}>
@@ -79,58 +146,97 @@ export default function Sidebar(props: Props) {
             returnKeyType="search"
             autoCapitalize="none"
             autoCorrect={false}
+            autoFocus
           />
+          {props.searching ? (
+            <ActivityIndicator size="small" color={colors.accent} style={{ marginLeft: 4 }} />
+          ) : q.length > 0 ? (
+            <TouchableOpacity
+              onPress={props.onSearchClear}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ marginLeft: 2 }}
+            >
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
-        {props.searching ? (
-          <ActivityIndicator color={colors.accent} style={{ marginTop: 24 }} />
-        ) : (
-          <FlatList
-            data={rows}
-            keyExtractor={(item, i) =>
-              item.type === 'file' ? `f-${item.node.path}` : `m-${i}-${item.filePath}-${item.lineNumber}`
+        {q.length > 0 && results && (
+          <Text style={styles.resultCountText}>
+            {totalCount > 0 ? `${totalCount} result${totalCount === 1 ? '' : 's'}` : 'Koi result nahi mila'}
+          </Text>
+        )}
+
+        <FlatList
+          data={rows}
+          keyExtractor={(item, i) => {
+            if (item.type === 'section') return `s-${item.label}`;
+            if (item.type === 'file') return `f-${item.node.path}`;
+            if (item.type === 'group') return `g-${item.filePath}`;
+            return `m-${i}-${item.filePath}-${item.lineNumber}`;
+          }}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => {
+            if (item.type === 'section') {
+              return <Text style={styles.sectionLabel}>{item.label}</Text>;
             }
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => {
-              if (item.type === 'file') {
-                return (
-                  <TouchableOpacity
-                    style={styles.resultRow}
-                    onPress={() => props.onSearchResultPress(item.node.path, item.node.name)}
-                  >
-                    <Ionicons name="document-text-outline" size={14} color="#8fb8de" style={{ marginRight: 6 }} />
-                    <Text style={styles.resultFileName} numberOfLines={1}>
-                      {item.node.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              }
+            if (item.type === 'file') {
               return (
                 <TouchableOpacity
-                  style={styles.matchRow}
-                  onPress={() => props.onSearchResultPress(item.filePath, item.fileName, item.lineNumber)}
+                  style={styles.resultRow}
+                  onPress={() => props.onSearchResultPress(item.node.path, item.node.name)}
                 >
-                  <Text style={styles.matchFileName} numberOfLines={1}>
-                    {item.fileName} <Text style={styles.matchLineNum}>:{item.lineNumber}</Text>
-                  </Text>
-                  <Text style={styles.matchLineText} numberOfLines={1}>
-                    {item.lineText}
-                  </Text>
+                  <Ionicons name="document-text-outline" size={14} color="#8fb8de" style={{ marginRight: 6 }} />
+                  <HighlightedText
+                    text={item.node.name}
+                    query={q}
+                    style={styles.resultFileName}
+                    highlightStyle={styles.highlightText}
+                    numberOfLines={1}
+                  />
                 </TouchableOpacity>
               );
-            }}
-            ListEmptyComponent={
+            }
+            if (item.type === 'group') {
+              return (
+                <View style={styles.groupHeader}>
+                  <Ionicons name="document-text-outline" size={12} color={colors.textMuted} style={{ marginRight: 5 }} />
+                  <Text style={styles.groupHeaderText} numberOfLines={1}>
+                    {item.fileName}
+                  </Text>
+                  <Text style={styles.groupHeaderCount}>{item.count}</Text>
+                </View>
+              );
+            }
+            return (
+              <TouchableOpacity
+                style={styles.matchRow}
+                onPress={() => props.onSearchResultPress(item.filePath, item.fileName, item.lineNumber)}
+              >
+                <Text style={styles.matchLineNum}>{item.lineNumber}</Text>
+                <HighlightedText
+                  text={item.lineText}
+                  query={q}
+                  style={styles.matchLineText}
+                  highlightStyle={styles.highlightText}
+                  numberOfLines={1}
+                />
+              </TouchableOpacity>
+            );
+          }}
+          ListEmptyComponent={
+            !props.searching ? (
               <Text style={styles.emptyText}>
-                {props.searchQuery ? 'Koi result nahi mila' : 'Type karke Enter dabao search karne ke liye'}
+                {q ? 'Koi result nahi mila' : 'Type karte hi results yaha aa jayenge'}
               </Text>
-            }
-            ListFooterComponent={
-              props.searchResults?.truncated ? (
-                <Text style={styles.truncatedText}>Bahut zyada results the — kuch hi dikhaye gaye</Text>
-              ) : null
-            }
-          />
-        )}
+            ) : null
+          }
+          ListFooterComponent={
+            props.searchResults?.truncated ? (
+              <Text style={styles.truncatedText}>Bahut zyada results the — kuch hi dikhaye gaye</Text>
+            ) : null
+          }
+        />
       </View>
     );
   }
@@ -259,10 +365,44 @@ function createStyles(colors: ThemeColors) {
     searchInput: { flex: 1, color: colors.textPrimary, fontSize: 13, marginLeft: 6, padding: 0 },
     resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 10 },
     resultFileName: { color: colors.textSecondary, fontSize: 13, flex: 1 },
-    matchRow: { paddingVertical: 5, paddingHorizontal: 10 },
+    resultCountText: { color: colors.textFaint, fontSize: 10.5, paddingHorizontal: 12, paddingBottom: 4 },
+    sectionLabel: {
+      color: colors.textFaint,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.6,
+      paddingHorizontal: 10,
+      paddingTop: 10,
+      paddingBottom: 4,
+    },
+    groupHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      backgroundColor: colors.surfaceAlt,
+      marginTop: 2,
+    },
+    groupHeaderText: { color: colors.textSecondary, fontSize: 12, fontWeight: '600', flex: 1 },
+    groupHeaderCount: {
+      color: colors.textFaint,
+      fontSize: 10,
+      fontWeight: '700',
+      backgroundColor: colors.border,
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      borderRadius: 8,
+      overflow: 'hidden',
+    },
+    highlightText: {
+      backgroundColor: colors.warning + '55',
+      color: colors.textPrimary,
+      fontWeight: '700',
+    },
+    matchRow: { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 10, paddingLeft: 22, gap: 8 },
     matchFileName: { color: colors.accent, fontSize: 12 },
-    matchLineNum: { color: colors.success },
-    matchLineText: { color: colors.textDim, fontSize: 12, fontFamily: 'monospace', marginTop: 1 },
+    matchLineNum: { color: colors.success, fontSize: 11, fontFamily: 'monospace', minWidth: 22 },
+    matchLineText: { color: colors.textDim, fontSize: 12, fontFamily: 'monospace', flex: 1 },
     listRow: { flexDirection: 'row', alignItems: 'center', paddingRight: 10 },
     listRowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingLeft: 10 },
     starBtn: { paddingLeft: 6, paddingVertical: 6 },

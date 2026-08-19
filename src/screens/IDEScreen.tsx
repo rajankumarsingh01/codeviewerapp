@@ -59,6 +59,8 @@ const ACTIVITY_BAR_WIDTH = 48;
 const TABLET_BREAKPOINT = 700;
 const MAX_OPEN_TABS = 10;
 const SESSION_SAVE_DEBOUNCE_MS = 600;
+const SEARCH_DEBOUNCE_MS = 280;
+const MIN_SEARCH_CHARS = 1;
 
 export default function IDEScreen({ route }: Props) {
   const { projectPath, projectName } = route.params;
@@ -99,6 +101,7 @@ export default function IDEScreen({ route }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const searchSeqRef = useRef(0);
 
   const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
   const [recentFiles, setRecentFiles] = useState<RecentFileEntry[]>([]);
@@ -275,16 +278,53 @@ export default function IDEScreen({ route }: Props) {
     [activePath, splitPath]
   );
 
-  const handleSearchSubmit = useCallback(async () => {
+  const runSearch = useCallback(
+    async (query: string) => {
+      const mySeq = ++searchSeqRef.current;
+      const q = query.trim();
+      if (!q) {
+        setSearchResults(null);
+        setSearching(false);
+        return;
+      }
+      setSearching(true);
+      const results = await searchProject(allFiles, q);
+      // Agar iske baad koi naya search shuru ho chuka hai, ye purana result discard karo
+      if (mySeq !== searchSeqRef.current) return;
+      setSearchResults(results);
+      setSearching(false);
+    },
+    [allFiles]
+  );
+
+  // Live search — type karte hi (thodi si debounce ke saath) results aa jaate hain,
+  // Enter dabane ki zaroorat nahi
+  useEffect(() => {
     if (!searchQuery.trim()) {
+      searchSeqRef.current++;
       setSearchResults(null);
+      setSearching(false);
       return;
     }
-    setSearching(true);
-    const results = await searchProject(allFiles, searchQuery);
-    setSearchResults(results);
+    if (searchQuery.trim().length < MIN_SEARCH_CHARS) return;
+
+    const t = setTimeout(() => {
+      runSearch(searchQuery);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(t);
+  }, [searchQuery, runSearch]);
+
+  const handleSearchSubmit = useCallback(() => {
+    runSearch(searchQuery);
+  }, [searchQuery, runSearch]);
+
+  const handleSearchClear = useCallback(() => {
+    searchSeqRef.current++;
+    setSearchQuery('');
+    setSearchResults(null);
     setSearching(false);
-  }, [searchQuery, allFiles]);
+  }, []);
 
   const handleSearchResultPress = useCallback(
     (filePath: string, fileName: string, lineNumber?: number) => {
@@ -370,6 +410,7 @@ export default function IDEScreen({ route }: Props) {
       searchQuery={searchQuery}
       onSearchQueryChange={setSearchQuery}
       onSearchSubmit={handleSearchSubmit}
+      onSearchClear={handleSearchClear}
       searching={searching}
       searchResults={searchResults}
       onSearchResultPress={handleSearchResultPress}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import HomeScreen from './src/screens/HomeScreen';
 import IDEScreen from './src/screens/IDEScreen';
@@ -37,7 +38,7 @@ function Navigation() {
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'My Projects' }} />
+        <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen
           name="IDE"
           component={IDEScreen}
@@ -58,10 +59,12 @@ function Navigation() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <ErrorBoundary>
-        <Navigation />
-      </ErrorBoundary>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <ErrorBoundary>
+          <Navigation />
+        </ErrorBoundary>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
