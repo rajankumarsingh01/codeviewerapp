@@ -35,6 +35,11 @@ interface Props {
   wordWrap: boolean;
 }
 
+interface LineSelection {
+  start: number;
+  end: number;
+}
+
 const COMMENT_GUTTER_WIDTH = 22;
 
 export default function CodeView({ filePath, fileName, fontSize, highlightLine, wordWrap }: Props) {
@@ -52,6 +57,11 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
   const [editing, setEditing] = useState(false);
   const [draftText, setDraftText] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Naya: Select Lines mode — poori file ke bajaye sirf ek line-range copy karne ke liye
+  const [selectMode, setSelectMode] = useState(false);
+  const [selection, setSelection] = useState<LineSelection | null>(null);
+  const [selectionCopied, setSelectionCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,11 +101,57 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
     };
   }, [filePath]);
 
+  // File badalte hi selection mode bhi reset kar do
+  useEffect(() => {
+    setSelectMode(false);
+    setSelection(null);
+  }, [filePath]);
+
   const displayContent = editedOverride ?? originalContent;
 
-  const handleLinePress = useCallback((lineNumber: number) => {
-    setActiveCommentLine(lineNumber);
+  const handleLinePress = useCallback(
+    (lineNumber: number) => {
+      if (selectMode) {
+        setSelection((prev) => {
+          // Koi selection nahi hai, ya pichli selection already ek full range thi —
+          // dono cases me naya single-line selection shuru karo is line se
+          if (!prev || prev.start !== prev.end) {
+            return { start: lineNumber, end: lineNumber };
+          }
+          // Ek single line already selected hai — is tap se range banao
+          return { start: prev.start, end: lineNumber };
+        });
+        return;
+      }
+      setActiveCommentLine(lineNumber);
+    },
+    [selectMode]
+  );
+
+  const handleToggleSelectMode = useCallback(() => {
+    setSelectMode((prev) => !prev);
+    setSelection(null);
   }, []);
+
+  const handleCancelSelect = useCallback(() => {
+    setSelectMode(false);
+    setSelection(null);
+  }, []);
+
+  const handleCopySelection = useCallback(async () => {
+    if (!selection || !displayContent) return;
+    const lo = Math.min(selection.start, selection.end);
+    const hi = Math.max(selection.start, selection.end);
+    const lines = displayContent.split('\n');
+    const selectedText = lines.slice(lo - 1, hi).join('\n');
+    await Clipboard.setStringAsync(selectedText);
+    setSelectionCopied(true);
+    setTimeout(() => {
+      setSelectionCopied(false);
+      setSelectMode(false);
+      setSelection(null);
+    }, 900);
+  }, [selection, displayContent]);
 
   const handleSaveLineComment = useCallback(
     async (text: string) => {
@@ -194,12 +250,17 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
     ({ item: lineTokens, index }: { item: Token[]; index: number }) => {
       const lineNumber = index + 1;
       const hasComment = !!lineNotes[lineNumber]?.trim();
+      const inSelection =
+        selection != null &&
+        lineNumber >= Math.min(selection.start, selection.end) &&
+        lineNumber <= Math.max(selection.start, selection.end);
       return (
         <View
           style={[
             wordWrap ? styles.lineRowWrap : styles.lineRow,
             !wordWrap && { height: ROW_HEIGHT },
             highlightLine === lineNumber && styles.highlightedLineRow,
+            inSelection && styles.selectedLineRow,
           ]}
         >
           <TouchableOpacity
@@ -207,7 +268,15 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
             style={[styles.commentGutter, !wordWrap && { height: ROW_HEIGHT }]}
             hitSlop={{ top: 2, bottom: 2, left: 4, right: 4 }}
           >
-            {hasComment && <Ionicons name="chatbubble" size={10} color={colors.warning} />}
+            {selectMode ? (
+              <Ionicons
+                name={inSelection ? 'checkbox' : 'square-outline'}
+                size={12}
+                color={inSelection ? colors.accent : colors.textFaint}
+              />
+            ) : (
+              hasComment && <Ionicons name="chatbubble" size={10} color={colors.warning} />
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleLinePress(lineNumber)}
@@ -251,7 +320,7 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
         </View>
       );
     },
-    [fontSize, highlightLine, ROW_HEIGHT, wordWrap, lineNotes, handleLinePress, styles, colors]
+    [fontSize, highlightLine, ROW_HEIGHT, wordWrap, lineNotes, handleLinePress, styles, colors, selectMode, selection]
   );
 
   const getItemLayout = useCallback(
@@ -332,6 +401,35 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
                 <Text style={styles.saveEditBtnText}>{savingEdit ? 'Saving...' : 'Save'}</Text>
               </TouchableOpacity>
             </>
+          ) : selectMode ? (
+            <>
+              <Text style={styles.selectionLabel}>
+                {selection
+                  ? `${Math.abs(selection.end - selection.start) + 1} line${
+                      Math.abs(selection.end - selection.start) + 1 > 1 ? 's' : ''
+                    } selected`
+                  : 'Line tap karo select karne ke liye'}
+              </Text>
+              <TouchableOpacity
+                style={styles.editActionBtn}
+                onPress={handleCancelSelect}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Ionicons name="close" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveEditBtn}
+                onPress={handleCopySelection}
+                disabled={!selection}
+              >
+                <Ionicons
+                  name={selectionCopied ? 'checkmark' : 'copy-outline'}
+                  size={14}
+                  color={colors.accentText}
+                />
+                <Text style={styles.saveEditBtnText}>{selectionCopied ? 'Copied!' : 'Copy'}</Text>
+              </TouchableOpacity>
+            </>
           ) : (
             <>
               <TouchableOpacity
@@ -341,6 +439,14 @@ export default function CodeView({ filePath, fileName, fontSize, highlightLine, 
               >
                 <Ionicons name="pencil-outline" size={13} color={colors.textSecondary} />
                 <Text style={styles.copyBtnText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.copyBtn}
+                onPress={handleToggleSelectMode}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Ionicons name="checkbox-outline" size={13} color={colors.textSecondary} />
+                <Text style={styles.copyBtnText}>Select</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.copyBtn}
@@ -419,6 +525,8 @@ function createStyles(colors: ThemeColors) {
     cancelText: { color: colors.textMuted, fontSize: 12 },
     saveEditBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: colors.accent },
     saveEditBtnText: { color: colors.accentText, fontSize: 12, fontWeight: '600', marginLeft: 4 },
+    selectionLabel: { color: colors.textMuted, fontSize: 11, marginRight: 4 },
+    selectedLineRow: { backgroundColor: colors.activeRow },
     editInput: { flex: 1, color: colors.codeText, fontFamily: 'monospace', fontSize: 14, padding: 14, lineHeight: 20, backgroundColor: colors.background },
     flatListWrap: { flex: 1 },
     lineRow: { flexDirection: 'row', alignItems: 'center' },

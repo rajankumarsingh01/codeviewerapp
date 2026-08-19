@@ -5,6 +5,7 @@ export interface TreeNode {
   path: string;
   isDirectory: boolean;
   children?: TreeNode[];
+  size?: number;
 }
 
 // Ek folder ke andar recursively saari files/folders padhta hai aur tree banata hai
@@ -30,6 +31,7 @@ export async function readDirectoryTree(dirPath: string): Promise<TreeNode[]> {
           name: itemName,
           path: itemPath,
           isDirectory: false,
+          size: info.exists ? info.size : undefined,
         });
       }
     }
@@ -92,6 +94,44 @@ export function flattenFiles(nodes: TreeNode[]): TreeNode[] {
   };
   walk(nodes);
   return result;
+}
+
+export interface ProjectStats {
+  fileCount: number;
+  folderCount: number;
+  totalSize: number;
+}
+
+// Naya: Project Info — total files, folders aur size ek saath count karta hai (already
+// loaded tree se, koi extra disk read nahi lagti)
+export function computeProjectStats(nodes: TreeNode[]): ProjectStats {
+  let fileCount = 0;
+  let folderCount = 0;
+  let totalSize = 0;
+
+  const walk = (list: TreeNode[]) => {
+    for (const n of list) {
+      if (n.isDirectory) {
+        folderCount++;
+        if (n.children) walk(n.children);
+      } else {
+        fileCount++;
+        totalSize += n.size || 0;
+      }
+    }
+  };
+  walk(nodes);
+
+  return { fileCount, folderCount, totalSize };
+}
+
+// Bytes ko human-readable form me dikhata hai (B / KB / MB / GB)
+export function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 const BINARY_EXTENSIONS = new Set([

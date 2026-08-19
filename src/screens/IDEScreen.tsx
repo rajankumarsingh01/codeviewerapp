@@ -19,6 +19,7 @@ import {
   readDirectoryTree,
   flattenFiles,
   searchProject,
+  computeProjectStats,
   TreeNode,
   SearchResults,
 } from '../utils/fileSystem';
@@ -51,7 +52,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 type Props = NativeStackScreenProps<RootStackParamList, 'IDE'>;
 type FocusedPane = 'left' | 'right';
 
-const MIN_FONT_SIZE = 10;
+const MIN_FONT_SIZE = 6;
 const MAX_FONT_SIZE = 24;
 const DEFAULT_FONT_SIZE = 13;
 const ACTIVITY_BAR_WIDTH = 48;
@@ -157,6 +158,7 @@ export default function IDEScreen({ route }: Props) {
   }, [projectPath, openTabs, activePath, expandedPaths, fontSize, wordWrap, splitActive, splitPath]);
 
   const allFiles = useMemo(() => flattenFiles(tree), [tree]);
+  const projectStats = useMemo(() => computeProjectStats(tree), [tree]);
 
   const bookmarkedPaths = useMemo(() => new Set(bookmarks.map((b) => b.path)), [bookmarks]);
 
@@ -359,6 +361,7 @@ export default function IDEScreen({ route }: Props) {
       mode={sidebarMode}
       projectName={projectName}
       tree={tree}
+      stats={projectStats}
       expandedPaths={expandedPaths}
       activePath={activePath}
       onFilePress={handleFilePress}

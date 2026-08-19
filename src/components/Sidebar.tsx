@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { TreeNode, SearchResults } from '../utils/fileSystem';
+import type { TreeNode, SearchResults, ProjectStats } from '../utils/fileSystem';
+import { formatBytes } from '../utils/fileSystem';
 import type { BookmarkEntry, RecentFileEntry } from '../utils/storage';
 import TreeItem from './TreeItem';
 import { useTheme, ThemeColors } from '../context/ThemeContext';
@@ -24,6 +25,7 @@ interface Props {
   mode: SidebarMode;
   projectName: string;
   tree: TreeNode[];
+  stats: ProjectStats;
   expandedPaths: Set<string>;
   activePath: string | null;
   onFilePress: (node: TreeNode) => void;
@@ -206,13 +208,16 @@ export default function Sidebar(props: Props) {
   return (
     <View style={styles.panel}>
       <View style={styles.explorerHeaderRow}>
-        <Text style={styles.header} numberOfLines={1}>
+        <Text style={styles.explorerHeader} numberOfLines={1}>
           {props.projectName.toUpperCase()}
         </Text>
         <TouchableOpacity onPress={props.onCollapseAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="remove-circle-outline" size={16} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
+      <Text style={styles.statsText}>
+        {props.stats.fileCount} files · {props.stats.folderCount} folders · {formatBytes(props.stats.totalSize)}
+      </Text>
       <FlatList
         data={props.tree}
         keyExtractor={(item) => item.path}
@@ -238,6 +243,8 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     panel: { flex: 1, backgroundColor: colors.surface },
     header: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5, paddingHorizontal: 12, paddingVertical: 10 },
+    explorerHeader: { color: colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 2 },
+    statsText: { color: colors.textFaint, fontSize: 10, paddingHorizontal: 12, paddingBottom: 8 },
     explorerHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 12 },
     searchBox: {
       flexDirection: 'row',
