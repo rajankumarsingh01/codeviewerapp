@@ -34,6 +34,9 @@
         "projectId": "23e471ed-10af-4d7f-9e0a-03f6729660ce"
       }
     },
-    "owner": "rajankumarsingh"
+    "owner": "rajankumarsingh",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
