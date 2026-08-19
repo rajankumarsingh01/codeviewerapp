@@ -15,45 +15,77 @@ export async function extractZipToLocal(
   zipFileName: string
 ): Promise<ExtractResult> {
   try {
-    // 1. Project ka naam nikalo (zip filename se, .zip hata ke)
     const projectName = zipFileName.replace(/\.zip$/i, '');
 
-    // 2. Destination folder banao app ke document directory me
+    const zipBase64 = await FileSystem.readAsStringAsync(zipUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    return await extractZipBase64ToProject(zipBase64, projectName, false);
+  } catch (error: any) {
+    console.error('Zip extraction error:', error);
+    return {
+      success: false,
+      error: error?.message || 'Unknown error during extraction',
+    };
+  }
+}
+
+// Core extraction logic — ek base64 zip string ko project folder me extract karta hai.
+// zip-import (Home screen) aur git-clone (Clone screen) dono isko reuse karte hain,
+// taaki extraction ka code duplicate na ho.
+//
+// stripTopFolder: GitHub jaise source ke zip archives ke andar ek single top-level
+// folder hota hai (jaise "repo-main/"). Ye true karne par us wrapper folder ko hata
+// diya jata hai, taaki project ka tree seedha repo root se shuru ho, extra nesting na ho.
+export async function extractZipBase64ToProject(
+  zipBase64: string,
+  projectName: string,
+  stripTopFolder: boolean
+): Promise<ExtractResult> {
+  try {
     const projectsRoot = `${FileSystem.documentDirectory}projects/`;
     const projectPath = `${projectsRoot}${projectName}/`;
 
-    // 3. Agar projects root folder nahi hai to banao
     const rootInfo = await FileSystem.getInfoAsync(projectsRoot);
     if (!rootInfo.exists) {
       await FileSystem.makeDirectoryAsync(projectsRoot, { intermediates: true });
     }
 
-    // 4. Agar isi naam ka project pehle se hai to usko delete karo (fresh import)
     const existingInfo = await FileSystem.getInfoAsync(projectPath);
     if (existingInfo.exists) {
       await FileSystem.deleteAsync(projectPath, { idempotent: true });
     }
     await FileSystem.makeDirectoryAsync(projectPath, { intermediates: true });
 
-    // 5. Zip file ko base64 me read karo
-    const zipBase64 = await FileSystem.readAsStringAsync(zipUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
-    // 6. JSZip se load karo aur entries loop karo
     const zip = await JSZip.loadAsync(zipBase64, { base64: true });
-
     const entries = Object.keys(zip.files);
+
+    // Agar stripTopFolder true hai, ye pehla path-segment nikal ke sabme se hata dega
+    let topFolderPrefix: string | null = null;
+    if (stripTopFolder && entries.length > 0) {
+      const firstSlashIdx = entries[0].indexOf('/');
+      if (firstSlashIdx > 0) {
+        const candidate = entries[0].substring(0, firstSlashIdx + 1);
+        const allShareIt = entries.every((e) => e.startsWith(candidate));
+        if (allShareIt) topFolderPrefix = candidate;
+      }
+    }
 
     for (const entryName of entries) {
       const entry = zip.files[entryName];
-      const targetPath = `${projectPath}${entryName}`;
+
+      let relativeName = entryName;
+      if (topFolderPrefix && relativeName.startsWith(topFolderPrefix)) {
+        relativeName = relativeName.substring(topFolderPrefix.length);
+      }
+      if (!relativeName) continue; // top-level folder entry khud ko skip karo
+
+      const targetPath = `${projectPath}${relativeName}`;
 
       if (entry.dir) {
-        // Folder hai — bana do
         await FileSystem.makeDirectoryAsync(targetPath, { intermediates: true });
       } else {
-        // File hai — parent folder ensure karo, fir content likho
         const parentDir = targetPath.substring(0, targetPath.lastIndexOf('/'));
         const parentInfo = await FileSystem.getInfoAsync(parentDir);
         if (!parentInfo.exists) {
@@ -67,7 +99,6 @@ export async function extractZipToLocal(
       }
     }
 
-    // 7. Project ko saved list me register/update karo (Home screen ke liye)
     await addOrUpdateProject(projectName, projectPath);
 
     return {

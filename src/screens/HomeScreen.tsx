@@ -139,6 +139,13 @@ export default function HomeScreen({ navigation }: Props) {
           <TouchableOpacity style={styles.themeBtn} onPress={toggleTheme} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={colors.textSecondary} />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.themeBtn}
+            onPress={() => navigation.navigate('Clone')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="git-branch-outline" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
           {loading ? (
             <ActivityIndicator color={colors.accent} />
           ) : (
@@ -161,6 +168,13 @@ export default function HomeScreen({ navigation }: Props) {
           <TouchableOpacity style={styles.button} onPress={handleImportProject}>
             <Ionicons name="folder-open-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
             <Text style={styles.buttonText}>Import Project (.zip)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.secondaryButton]}
+            onPress={() => navigation.navigate('Clone')}
+          >
+            <Ionicons name="git-branch-outline" size={18} color={colors.textPrimary} style={{ marginRight: 8 }} />
+            <Text style={[styles.buttonText, { color: colors.textPrimary }]}>Clone from Git</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -205,6 +219,7 @@ function createStyles(colors: ThemeColors) {
     emptyTitle: { fontSize: 17, fontWeight: '600', color: colors.textPrimary, marginBottom: 4 },
     emptySubtitle: { fontSize: 13, color: colors.textMuted, marginBottom: 24, textAlign: 'center' },
     button: { flexDirection: 'row', backgroundColor: colors.accent, paddingVertical: 14, paddingHorizontal: 24, borderRadius: 6, alignItems: 'center' },
+    secondaryButton: { backgroundColor: colors.surfaceAlt, marginTop: 10 },
     buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
     listContent: { paddingHorizontal: 14, paddingTop: 4 },
     projectRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 8 },

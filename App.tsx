@@ -4,12 +4,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import HomeScreen from './src/screens/HomeScreen';
 import IDEScreen from './src/screens/IDEScreen';
+import CloneScreen from './src/screens/CloneScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
 export type RootStackParamList = {
   Home: undefined;
   IDE: { projectPath: string; projectName: string };
+  Clone: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -43,6 +45,11 @@ function Navigation() {
             title: route.params.projectName,
             headerBackTitle: 'Projects',
           })}
+        />
+        <Stack.Screen
+          name="Clone"
+          component={CloneScreen}
+          options={{ title: 'Clone Repository', headerBackTitle: 'Projects' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
