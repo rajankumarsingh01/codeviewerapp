@@ -1,3 +1,4 @@
+// src/utils/syntaxHighlighter.ts
 // Halka custom syntax highlighter — koi native/heavy library nahi.
 // Pure regex-based tokenizer. Dono themes (VS Code Dark+ aur Light+) ke colors support karta hai.
 // Expo Go me 100% chalega kyunki ye sirf plain JS hai, native module nahi.
@@ -25,38 +26,41 @@ interface SyntaxColorSet {
   attribute: string;
 }
 
-// VS Code "Dark+" theme ke approximate colors
+// Palenight-inspired palette — VS Code ke default blue ki jagah purple/green/orange/gold
+// mix use karta hai taaki lambi der code padhne me ankhon me na chubhe, phir bhi tokens
+// clearly alag-alag dikhein
 export const DARK_SYNTAX_COLORS: SyntaxColorSet = {
-  keyword: '#569CD6',
-  controlKeyword: '#C586C0',
-  string: '#CE9178',
-  comment: '#6A9955',
-  number: '#B5CEA1',
-  boolean: '#569CD6',
-  function: '#DCDCAA',
-  variable: '#9CDCFE',
+  keyword: '#C792EA',
+  controlKeyword: '#F07178',
+  string: '#C3E88D',
+  comment: '#697098',
+  number: '#F78C6C',
+  boolean: '#C792EA',
+  function: '#FFCB6B',
+  variable: '#E4C9A6',
   type: '#4EC9B0',
   punctuation: '#D4D4D4',
   default: '#D4D4D4',
-  tag: '#569CD6',
-  attribute: '#9CDCFE',
+  tag: '#F07178',
+  attribute: '#FFCB6B',
 };
 
-// VS Code "Light+" theme ke approximate colors
+// Light theme ka pehle wala pure-blue (#0000FF) keyword bhi kaafi harsh tha — usi jagah
+// ek muted violet, taaki dono themes me consistent aur comfortable feel rahe
 export const LIGHT_SYNTAX_COLORS: SyntaxColorSet = {
-  keyword: '#0000FF',
-  controlKeyword: '#AF00DB',
+  keyword: '#7C3AED',
+  controlKeyword: '#D6336C',
   string: '#A31515',
   comment: '#008000',
   number: '#098658',
-  boolean: '#0000FF',
+  boolean: '#7C3AED',
   function: '#795E26',
-  variable: '#001080',
+  variable: '#B25E09',
   type: '#267F99',
   punctuation: '#000000',
   default: '#000000',
   tag: '#800000',
-  attribute: '#FF0000',
+  attribute: '#B25E09',
 };
 
 export function getSyntaxColors(isDark: boolean): SyntaxColorSet {

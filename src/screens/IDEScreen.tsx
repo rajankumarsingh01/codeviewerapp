@@ -54,7 +54,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 type Props = NativeStackScreenProps<RootStackParamList, 'IDE'>;
 type FocusedPane = 'left' | 'right';
 
-const MIN_FONT_SIZE = 6;
+const MIN_FONT_SIZE = 3;
 const MAX_FONT_SIZE = 24;
 const DEFAULT_FONT_SIZE = 13;
 const ACTIVITY_BAR_WIDTH = 48;

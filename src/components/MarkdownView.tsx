@@ -53,9 +53,9 @@ const FENCE_LANG_ALIASES: Record<string, string> = {
 
 // GitHub jaisa alert callout styling — ```> [!NOTE]``` type blockquotes ke liye
 const ALERT_CONFIG: Record<string, { icon: any; color: string; label: string }> = {
-  NOTE: { icon: 'information-circle', color: '#2f81f7', label: 'Note' },
+  NOTE: { icon: 'information-circle', color: '#58a6ff', label: 'Note' },
   TIP: { icon: 'bulb', color: '#3fb950', label: 'Tip' },
-  IMPORTANT: { icon: 'megaphone', color: '#a371f7', label: 'Important' },
+  IMPORTANT: { icon: 'megaphone', color: '#bc8cff', label: 'Important' },
   WARNING: { icon: 'warning', color: '#d29922', label: 'Warning' },
   CAUTION: { icon: 'alert-circle', color: '#f85149', label: 'Caution' },
 };
@@ -239,7 +239,18 @@ function CodeFenceBlock({
 }
 
 const fenceStyles = StyleSheet.create({
-  wrap: { borderRadius: 8, marginVertical: 10, borderWidth: 1, overflow: 'hidden', backgroundColor: '#0c0c0c' },
+  wrap: {
+    borderRadius: 10,
+    marginVertical: 10,
+    borderWidth: 1,
+    overflow: 'hidden',
+    backgroundColor: '#0c0c0c',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -405,10 +416,10 @@ export default function MarkdownView({ content, fontSize }: Props) {
           return (
             <View
               key={node.key}
-              style={[mdStyles.alertBox, { borderColor: cfg.color, backgroundColor: `${cfg.color}14` }]}
+              style={[mdStyles.alertBox, { borderLeftColor: cfg.color, backgroundColor: `${cfg.color}12` }]}
             >
               <View style={mdStyles.alertHeader}>
-                <Ionicons name={cfg.icon} size={15} color={cfg.color} />
+                <Ionicons name={cfg.icon} size={16} color={cfg.color} />
                 <Text style={[mdStyles.alertLabel, { color: cfg.color }]}>{cfg.label}</Text>
               </View>
               <View>{children}</View>
@@ -499,14 +510,14 @@ function createMarkdownStyles(colors: ThemeColors, fontSize: number) {
     statsText: { fontSize: 10.5 },
     tocPanel: { maxHeight: 220, borderBottomWidth: 1 },
     alertBox: {
-      borderWidth: 1,
-      borderLeftWidth: 4,
-      borderRadius: 6,
-      padding: 12,
+      borderLeftWidth: 3,
+      borderRadius: 8,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
       marginVertical: 12,
     },
-    alertHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, marginBottom: 6 },
-    alertLabel: { fontWeight: '700' as const, fontSize: 13 },
+    alertHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 7, marginBottom: 7 },
+    alertLabel: { fontWeight: '700' as const, fontSize: 13.5, letterSpacing: 0.2 },
     md: {
       body: {
         color: colors.textPrimary,
@@ -518,7 +529,7 @@ function createMarkdownStyles(colors: ThemeColors, fontSize: number) {
         fontWeight: '700',
         color: colors.textPrimary,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        borderBottomColor: colors.borderLight,
         paddingBottom: 8,
         marginTop: 4,
         marginBottom: 14,
@@ -528,7 +539,7 @@ function createMarkdownStyles(colors: ThemeColors, fontSize: number) {
         fontWeight: '700',
         color: colors.textPrimary,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        borderBottomColor: colors.borderLight,
         paddingBottom: 6,
         marginTop: 24,
         marginBottom: 12,
@@ -568,8 +579,8 @@ function createMarkdownStyles(colors: ThemeColors, fontSize: number) {
       link: { color: colors.accent, textDecorationLine: 'underline' },
       blockquote: {
         backgroundColor: colors.surfaceAlt,
-        borderLeftWidth: 4,
-        borderLeftColor: colors.accent,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.textMuted,
         paddingVertical: 8,
         paddingHorizontal: 14,
         marginVertical: 12,
@@ -599,20 +610,20 @@ function createMarkdownStyles(colors: ThemeColors, fontSize: number) {
       hr: { backgroundColor: colors.border, height: 1, marginVertical: 20 },
       table: {
         borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 6,
+        borderColor: colors.borderLight,
+        borderRadius: 8,
         marginVertical: 14,
         overflow: 'hidden',
       },
       thead: { backgroundColor: colors.surfaceAlt },
       th: {
-        padding: 8,
+        padding: 9,
         fontWeight: '700',
         color: colors.textPrimary,
-        borderColor: colors.border,
+        borderColor: colors.borderLight,
       },
-      tr: { borderBottomWidth: 1, borderColor: colors.border, flexDirection: 'row' },
-      td: { padding: 8, color: colors.textSecondary, borderColor: colors.border },
+      tr: { borderBottomWidth: 1, borderColor: colors.borderLight, flexDirection: 'row' },
+      td: { padding: 9, color: colors.textSecondary, borderColor: colors.borderLight },
     } as any,
   };
 }
